@@ -1,0 +1,224 @@
+\startreport{Lazy Data generation in Q}
+\reportauthor{Ramesh Subramonian}
+\newcommand{\Assign}{\verb+:=+ }
+
+\section{Introduction}
+
+For now, I am being blase in mixing Lua and C but this is pseudo-code 
+so I will take the liberty of doing so.
+
+\TBC
+
+
+\section{How is data represented?}
+There are two ways data is represented. One is as a vector,
+Section~\ref{data_vector}. The other is as a coroutine,
+Section~\ref{data_coroutine}. We have utilities to convert from one to
+the other. In other words, given a co-routine, it should be possible
+to create a vector. Given a vector, we should be able to create a
+co-routine that can be used to consume the data of the vector in
+chunks.
+
+\subsection{Data as a vector}
+\label{data_vector}
+
+A vector consists of the following
+\be
+\item {\bf cdata}, \verb+char *+, a pointer to a region of contiguous memory
+\item {\bf filename}, \verb+ char []+, The name of the file where this memory has been
+persisted, if at all. 
+\item {\bf M1}, a mandatory Lua table which contains meta-data such as 
+\be
+\item {\bf len}, \verb+ssize_t+. number of elements
+\item {\bf fldtype}, \verb+typeof()+, how to interpret the memory 
+e.g., int32\_t, double, \ldots 
+\item {\bf sz}, \verb+ssize_t+ size of each element. This is sizeof(fldtype) and
+hence this is redundant except when the fldtype is ``constant length
+string''.
+\item number of null values
+\ee
+\item {\bf M2}, an optional Lua table which contains meta-data such as 
+\be
+\item min, max, sum, \ldots
+\item number of distinct values
+\item \ldots
+\ee
+
+If filename is defined and cdata is null, then mmap can be used to set cdata. If
+cdata is defined and filename is null, then this memory was obtained from
+malloc()
+and has not yet been persisted to disk.
+
+Note that the size of the file, if one exists, may be set to a
+multiple of the file block size and hence may be greater than
+required.
+\ee
+
+\subsection{Data as a co-routine}
+\label{data_coroutine}
+It is useful to have the ability to have a co-routine that offers up
+consecutive chunks of memory from a vector to a consumer. 
+
+
+\subsection{Creating a vector from a co-routine}
+\label{vec_from_coro}
+
+Figure~\ref{eval} describes eval(), the function used to create a
+vector from a coroutine.
+
+\begin{figure}
+\centering
+\fbox{
+\begin{minipage}{20cm}
+\begin{tabbing} \hspace*{0.25in} \= \hspace*{0.25in} \= \hspace*{0.25in} \= \kill
+local FILE *fp = NULL; \\
+local char filename[] = "/tmp/myfileXXXX"; \\
+local int clock = 1; \\
+local ssize\_t len = 0; \\
+local prev = nil; \\ 
+{\bf for} ( ; ; ) {\bf do}  /* while chunks to consume */ \+ \\
+  rslt = coroutine.resume(x, clock); \\
+  {\bf if} ( not rslt )  {\bf then} /* prepare for return */ \+ \\
+    {\bf if} ( not prev )  {\bf then} \+ \\
+      error("first invocation cannot return nil")' \- \\
+    {\bf endif} \\
+    {\bf if} typeof(prev) == {\tt vector} {\bf then} \+ \\ 
+      fclose(fp); \\
+      local x = \{\}; \\
+      x.filename = filename; \\
+      x.fldtype = prev.fldtype; \\
+      x.sz = prev.sz; \\
+      x.len = x; \\
+      return x; \- \\
+    {\bf else}  \+ \\ 
+      return prev; \- \\
+    {\bf endif} \- \\
+  {\bf endif} \\
+  {\bf if}  ( typeof(rslt) == {\tt vector} ) {\bf then} \+ \\
+    len += rslt.len; /* Cumulative length of vector */ \\
+    {\bf if} ( clock == 1 ) {\bf then} \+ \\
+      mktemp(filename); \\
+      fopen(filename, "wb"); \- \\
+    {\bf endif} \\
+    fwrite(rslt.cdata, rslt.len, sizeof(rslt.fldtype), fp); \- \\
+  {\bf endif} \\ 
+  clock++; \\
+  prev = rslt; \- \\
+{\bf endfor}
+\end{tabbing}
+\end{minipage}
+}
+\label{eval}
+\caption{Function eval(x)}
+\end{figure}
+
+\subsection{Creating a co-routine from a vector}
+\label{coro_from_vec}
+Figure~\ref{wrap} describes wrap(), the function used to create a
+coroutine from a vector.  The details of the function used to create
+the co-routine are in Figure~\ref{wrap}.
+\begin{verbatim}
+q['wrap'] = function (invec)
+  return coroutine.create(
+    function(clock)
+      ...
+    end
+  )
+\end{verbatim}
+\begin{figure}
+\centering
+\fbox{
+\begin{minipage}{20cm}
+\begin{tabbing} 
+\hspace*{0.25in} \= \hspace*{0.25in} \= \hspace*{0.25in} \= 
+\hspace*{0.25in} \= \hspace*{0.25in} \= \hspace*{0.25in} \= 
+\kill
+local o = \{\} ; \\
+local lclock = 0; \\
+{\bf while} clock \(\neq\) nil and clock \(<\) 0 {\bf then} \+ \\
+  coroutine.yield(o, invec.M1, invec.M2) \- \\
+{\bf endif} \\
+local X = invec.cdata; \\
+{\bf if} ( not X ) {\bf then} \+ \\ 
+  local struct stat filestat; \\
+  int fd = open(invec.filename, O\_RDONLY); \\
+  fstat(fd, \&filestat); filesz = filestat.st\_size; \\
+  assert(invec.len \(\times\) sizeof(invec.fldtype) \(\geq\) filesz) ; \\
+  X = mmap(NULL, filesz, PROT\_READ, fd, 0); \- \\
+{\bf endif} \\ 
+{\bf for} ( ever ) {\bf do} \+ \\ 
+  lclock++; lclock = clock or lclock; \\
+  local ssize\_t lb = (clock-1) \(\times\) chunksize \\
+  {\bf if } lb \(>\) len {\bf then return} {\bf endif} \\
+  local ssize\_t ub = min(len, lb + chunksize) \\
+  o.cdata = X + ( lb \(\times\) sizeof(invec.fldtype) ) \\
+  o.len   = (ub - lb); \\ 
+  o.fldtype = invec.fldtype; \\
+  o.sz = invec.sz; \\
+  coroutine.yield(o, x.M1, x.M2) \\
+{\bf while} clock \(\neq\) nil and clock \(<\) 0 {\bf then} \+ \\
+  coroutine.yield(o, invec.M1, invec.M2) \- \\
+{\bf endif} \- \\
+{\bf endfor} 
+\end{tabbing}
+\end{minipage}
+}
+\label{wrap}
+\caption{Function wrap(x)}
+\end{figure}
+
+\subsection{An example: add} 
+\label{example_add}
+
+let us consider the function add which returns a co-routine that will yeild up
+chunks of the results of adding two ``things'', whether they be vectors or
+co-routines. 
+The details of the function used to create the co-routine for add in
+Figure~\ref{add}. 
+\begin{verbatim}
+q['add'] = function (arg1, arg2)
+  return coroutine.create(
+    function()
+    end
+  )
+\end{verbatim}
+
+\begin{figure}
+\centering
+\fbox{
+\begin{minipage}{20cm}
+\begin{tabbing} \hspace*{0.25in} \= \hspace*{0.25in} \= \hspace*{0.25in} \= \kill
+{\bf if}  ( typeof(arg1) == "vector" ) {\bf then} arg1 = wrap(arg1) {\bf endif} \\
+{\bf if}  ( typeof(arg2) == "vector" ) {\bf then} arg2 = wrap(arg2) {\bf endif} \\
+assert( typeof(arg1) == "coroutine" ) \\
+assert( typeof(arg2) == "coroutine" ) \\
+f3sz, f3type, cfn = somefn(arg1, arg2) \TBC \\
+f3 = \{\}; f3.sz = f3sz; f3.fldtype = f3type;  \\
+f3.cdata = C.malloc(f3sz \(\times\) chunksize) \\
+{\bf do} forever \+ \\ 
+c1 = coroutine.resume(arg1) \\
+c2 = coroutine.resume(arg1) \\
+assert((c1 and c2) or (not c1 and not c2)) \\
+{\bf if} ( not c1 ) {\bf then} return {\bf endif} \\ 
+C.cfn(c1.cdata, c2.cdata, f3cdata) \\
+coroutine.yield(f3) \- \\
+{\bf endfor} \\
+\end{tabbing}
+\end{minipage}
+}
+\label{add}
+\caption{Function used to create co-routine for add(x, y)}
+\end{figure}
+
+
+
+\section{The new assignment operator and peval}
+\label{assign_op}
+
+Assume that we have an operator \verb+:=+, which works as follows. Its
+meaning is different based on whether we are operating in basic or
+advanced mode.  In basic mode, a \verb+:=+ b is the same as a =
+eval(b), Figure~\ref{eval}. In advanced mode, a \verb+:=+ b is the same
+as a = nop(b) where nop is a function that just returns its argument.
+
+
