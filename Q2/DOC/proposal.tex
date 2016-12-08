@@ -24,34 +24,66 @@ chunks.
 
 A vector consists of the following
 \be
-\item {\bf cdata}, \verb+char *+, a pointer to a region of contiguous memory
-\item {\bf filename}, \verb+ char []+, The name of the file where this memory has been
+\item {\bf M1}, a Lua table which contains mandatory meta-data such as 
+\be
+\item {\bf cdata}, \verb+char *+, a pointer to a region of {\bf contiguous} memory
+containing data 
+\item {\bf filename}, \verb+char []+, The name of the file where cdata has been
 persisted, if at all. 
-\item {\bf M1}, a mandatory Lua table which contains meta-data such as 
-\be
-\item {\bf len}, \verb+ssize_t+. number of elements
-\item {\bf fldtype}, \verb+typeof()+, how to interpret the memory 
-e.g., int32\_t, double, \ldots 
-\item {\bf sz}, \verb+ssize_t+ size of each element. This is sizeof(fldtype) and
-hence this is redundant except when the fldtype is ``constant length
-string''.
-\item number of null values
-\ee
-\item {\bf M2}, an optional Lua table which contains meta-data such as 
-\be
-\item min, max, sum, \ldots
-\item number of distinct values
-\item \ldots
-\ee
 
+At least one of cdata and filename must be non-null.
 If filename is defined and cdata is null, then mmap can be used to set cdata. If
 cdata is defined and filename is null, then this memory was obtained from
 malloc()
 and has not yet been persisted to disk.
+%----------------------
+\item {\bf nncdata}, \verb+char *+, a pointer to a region of {\bf contiguous} memory
+containing boolean information about whether corresponding data is null or not.
+As an implementation detail, this is stored as bytes, although it could be
+stored as bits. In particular, nncdata[i] can be either 0 or 1 where 
+1 means that the \(i^{th}\) value is not null and 
+0 means that the \(i^{th}\) value is null. 
+
+\item {\bf nnfilename}, \verb+char []+, The name of the file where nncdata has been
+persisted, if at all. 
+
+It is possible for nncdata and nnfilename to both be null.
+%----------------------
+\item {\bf len}, \verb+ssize_t+. number of elements
+\item {\bf isnn}, \verb+bool+, whether there are null values. 
+
+If isnn = true, then either nncdata or nnfilename should be non-null
+If isnn = false, then both nncdata and nnfilename should be null
+%-------
+\item {\bf fldtype}, how to interpret the memory. We intend to support 6 types.
+In the near  future, will extend to constant length strings and then unsigned integers. 
+\begin{verbatim}
+int8_t, int16_t, int32_t, int64_t, float, double
+\end{verbatim}
+
+\item {\bf sz}, \verb+ssize_t+ size of each element. This is sizeof(fldtype) and
+hence this is redundant except when the fldtype is ``constant length
+string''.
+\ee
+\item {\bf M2}, a Lua table which contains optional meta-data such as 
+\be
+\item min, max, sum, \ldots
+\item number of null values. If this is 0, then nncdata and nnfilename must be
+null. It is possible for this to be nil and one of nncdata and nnfilename to be
+defined. This means we {\em may} have null values but haven't calculated that as
+yet. 
+\item number of distinct values
+\item md5hash of data, used as a check that data has not gotten corrupted
+\item filesz, size of file referenced in filename. Used for checking.
 
 Note that the size of the file, if one exists, may be set to a
 multiple of the file block size and hence may be greater than
 required.
+\item nnfilesz, size of file referenced in nnfilename. Used for checking.
+\item \ldots
+\ee
+
+
 \ee
 
 \subsection{Data as a co-routine}
@@ -71,35 +103,45 @@ vector from a coroutine.
 \fbox{
 \begin{minipage}{20cm}
 \begin{tabbing} \hspace*{0.25in} \= \hspace*{0.25in} \= \hspace*{0.25in} \= \kill
-local FILE *fp = NULL; \\
-local char filename[] = "/tmp/myfileXXXX"; \\
-local int clock = 1; \\
-local ssize\_t len = 0; \\
-local prev = nil; \\ 
+FILE *fp = NULL, *nnfp = NULL; \\
+char filename[] = "/tmp/myfileXXXX", nnfilename[] = "/tmp/myfileXXXX"; \\
+int clock = 0; \\
+ssize\_t len = 0; \\
+prev = nil; \\ 
+M1, M2 = coroutine.resume(x, -1);  /* Get meta data */ \\
+/* If resume of x returns a scalar, then M2 will be null; else, a table,
+even if an empty one */ \\
+{\bf if not} M2 {\bf then} isvec = true {\bf else} isvec = false {\bf endif} \\
+{\bf if } isvec {\bf then} \+ \\ 
+mktemp(filename); fp = fopen(filename, "wb"); \\
+{\bf if} M1.isnn {\bf then} \+ \\
+  mktemp(nnfilename); nnfp = fopen(nnfilename, "wb"); \- \\
+{\bf endif} \- \\
+{\bf endif} \\
+%---------------------------------------------
 {\bf for} ( ; ; ) {\bf do}  /* while chunks to consume */ \+ \\
   rslt = coroutine.resume(x, clock); \\
-  {\bf if} ( not rslt )  {\bf then} /* prepare for return */ \+ \\
-    {\bf if} ( not prev )  {\bf then} \+ \\
+  {\bf if} {\bf not} rslt  {\bf then} /* prepare for return */ \+ \\
+    {\bf if not} prev  {\bf then} \+ \\
       error("first invocation cannot return nil")' \- \\
     {\bf endif} \\
-    {\bf if} typeof(prev) == {\tt vector} {\bf then} \+ \\ 
-      fclose(fp); \\
-      local x = \{\}; \\
-      x.filename = filename; \\
-      x.fldtype = prev.fldtype; \\
-      x.sz = prev.sz; \\
+    {\bf if} isvec {\bf then} \+ \\ 
+      if ( fp != NULL ) { fclose(fp); } \\
+      if ( nnfp != NULL ) { fclose(nnfp); } \\
+      local x = \{\} \\
+      x.isnn = M1.isnn \\
+      x.filename = filename \\
+      x.fldtype = M1.fldtype \\
+      x.sz = M1.sz; \\
       x.len = x; \\
+      {\bf if } M1.isnn {\bf then} x.nnfilename = nnfilename {\bf endif} \\
       return x; \- \\
     {\bf else}  \+ \\ 
       return prev; \- \\
     {\bf endif} \- \\
   {\bf endif} \\
-  {\bf if}  ( typeof(rslt) == {\tt vector} ) {\bf then} \+ \\
+  {\bf if} isvec {\bf then} \+ \\
     len += rslt.len; /* Cumulative length of vector */ \\
-    {\bf if} ( clock == 1 ) {\bf then} \+ \\
-      mktemp(filename); \\
-      fopen(filename, "wb"); \- \\
-    {\bf endif} \\
     fwrite(rslt.cdata, rslt.len, sizeof(rslt.fldtype), fp); \- \\
   {\bf endif} \\ 
   clock++; \\
