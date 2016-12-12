@@ -1,0 +1,8 @@
+.meta
+TEMP.*
+*.dvi
+*.ps
+*.aux
+*.log
+*.toc
+*.pdf
