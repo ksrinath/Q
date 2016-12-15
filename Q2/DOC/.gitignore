@@ -6,3 +6,5 @@ TEMP.*
 *.log
 *.toc
 *.pdf
+_*
+*.*~
