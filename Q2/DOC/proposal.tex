@@ -10,14 +10,31 @@ so I will take the liberty of doing so.
 \TBC
 
 
-\section{How is data represented?}
-There are two ways data is represented. One is as a vector,
-Section~\ref{data_vector}. The other is as a coroutine,
-Section~\ref{data_coroutine}. We have utilities to convert from one to
-the other. In other words, given a co-routine, it should be possible
-to create a vector. Given a vector, we should be able to create a
-co-routine that can be used to consume the data of the vector in
-chunks.
+\section{Data storage and access}
+
+Q supports only one data structure, a vector. All elements of the vector must be
+of the same type and, for starters, we will support only primitive types ---
+integers, floating point numbers and possibly constant length strings.
+
+There are two kinds of vectors, depending on whether the underlying data has
+been materialized i.e., the entire vector exists in some contiguous block of
+memory, optionally persisted to a file on disk.
+
+A description of the data structures necessary to support a materialized vector
+is in Section~\ref{data_vector}. A description of how a vector is materialized
+is in Section~\ref{vec_from_coro}.
+
+Whether or not a vector has been materialized, it should be possible for the
+vector to be consumed in chunks. The construct that supports this is called a
+data generator and is implemented as a co-routine. In
+Section~\ref{coro_from_vec}, we describe how a materialized vector is served up
+in chunks to a potential consumer.
+
+For the most part, we want the Q programmer to be unaware of whether or not 
+a vector has been materialized. The Q library writer will need to be keenly
+aware of this difference. As of now, this goal is aspirational not real as we
+will see in Section~\ref{pitfalls}.
+
 
 \subsection{Data as a vector}
 \label{data_vector}
@@ -86,16 +103,10 @@ required.
 
 \ee
 
-\subsection{Data as a co-routine}
-\label{data_coroutine}
-It is useful to have the ability to have a co-routine that offers up
-consecutive chunks of memory from a vector to a consumer. 
-
-
 \subsection{Creating a vector from a co-routine}
 \label{vec_from_coro}
 
-Figure~\ref{eval} describes eval(), the function used to create a
+Figure~\ref{eval} describes eval(x), the function used to create a
 vector from a coroutine.
 
 \begin{figure}
@@ -114,9 +125,7 @@ even if an empty one */ \\
 {\bf if not} M2 {\bf then} isvec = true {\bf else} isvec = false {\bf endif} \\
 {\bf if } isvec {\bf then} \+ \\ 
 mktemp(filename); fp = fopen(filename, "wb"); \\
-{\bf if} M1.isnn {\bf then} \+ \\
-  mktemp(nnfilename); nnfp = fopen(nnfilename, "wb"); \- \\
-{\bf endif} \- \\
+{\bf if} M1.isnn {\bf then} mktemp(nnfilename); nnfp = fopen(nnfilename, "wb"); {\bf endif} \- \\
 {\bf endif} \\
 %---------------------------------------------
 {\bf for} ( ; ; ) {\bf do}  /* while chunks to consume */ \+ \\
@@ -126,14 +135,10 @@ mktemp(filename); fp = fopen(filename, "wb"); \\
       error("first invocation cannot return nil")' \- \\
     {\bf endif} \\
     {\bf if} isvec {\bf then} \+ \\ 
-      if ( fp != NULL ) { fclose(fp); } \\
-      if ( nnfp != NULL ) { fclose(nnfp); } \\
+      if ( fp != NULL ) { fclose(fp); }; if ( nnfp != NULL ) { fclose(nnfp); } \\
       local x = \{\} \\
-      x.isnn = M1.isnn \\
-      x.filename = filename \\
-      x.fldtype = M1.fldtype \\
-      x.sz = M1.sz; \\
-      x.len = x; \\
+      x.isnn = M1.isnn; x.filename = filename; x.fldtype = M1.fldtype \\
+      x.sz = M1.sz; x.len = len; \\
       {\bf if } M1.isnn {\bf then} x.nnfilename = nnfilename {\bf endif} \\
       return x; \- \\
     {\bf else}  \+ \\ 
@@ -142,7 +147,8 @@ mktemp(filename); fp = fopen(filename, "wb"); \\
   {\bf endif} \\
   {\bf if} isvec {\bf then} \+ \\
     len += rslt.len; /* Cumulative length of vector */ \\
-    fwrite(rslt.cdata, rslt.len, sizeof(rslt.fldtype), fp); \- \\
+    fwrite(rslt.cdata, rslt.len, sizeof(rslt.fldtype), fp); \\
+{\bf if} M1.isnn {\bf then} fwrite(rslt.nncdata, rslt.len, sizeof(char), nnfp); {\bf endif} \- \\
   {\bf endif} \\ 
   clock++; \\
   prev = rslt; \- \\
@@ -254,13 +260,135 @@ coroutine.yield(f3) \- \\
 
 
 
-\section{The new assignment operator and peval}
-\label{assign_op}
 
-Assume that we have an operator \verb+:=+, which works as follows. Its
-meaning is different based on whether we are operating in basic or
-advanced mode.  In basic mode, a \verb+:=+ b is the same as a =
-eval(b), Figure~\ref{eval}. In advanced mode, a \verb+:=+ b is the same
-as a = nop(b) where nop is a function that just returns its argument.
+\section{Data Generators --- Pitfalls and Solutions}
+\label{pitfalls}
+
+We have described the representation of data as vectors
+and how those vectors can be ``wrapped'' into co-routines which would offer
+up chunks of data at a time to consumers (Section~\ref{coro_from_vec}).
+
+A key thing to note is that when we write \(z = \mathrm{add}(x, y)\),
+no computation actually occurs. What does happen is that the function
+``add'' returns a coroutine which is stored in \(z\). If we were to
+say \(w = \mathrm{eval}(z)\), this would invoke the code described in
+Figure~\ref{eval} and create a variable called \(w\) with the fields
+described in Section~\ref{data_vector}. There are two key points to
+note
+\be
+\item the data for the vector has been ``materialized'' and stored in a contiguous
+block. Whether this has been persisted to disk is not relevant.
+\item the co-routine in \(z\) is dead. Subsequent calls to {\tt
+coroutine.resume(z, \ldots)} will fail.
+\ee
+In other words, reads are {\bf destructive}. This 
+poses a problem {\bf only} when there is more than one
+consumer. As an example, if we followed the eval with \(x = sum(z)\),
+this would throw an error. So, this breaks a pattern that we are used
+to in programming which is that when something is on the left hand
+side of an equals sign, we expect it to change. But if it is on the
+right of the equals sign, we do not expect it to change. Our
+expectation is that we can continue to use it on the right hand side
+until it is destroyed by some other action e.g., going out of
+scope, \ldots In Section~\ref{sticky_wicket}, we outline some very
+real examples where this is a problem.
+
+\subsection{Examples of tricky situations}
+\label{sticky_wicket}
+
+One can concoct several examples where destructive reads would land one in
+trouble. We provide a few below. 
+\be
+\item Normalizing a vector. 
+
+A common operation is to normalize a set of values so that they add up
+to 1.  e.g, \(y = \frac{x}{sum(x)}\). Note that \(x\) needs to be
+consumed twice, first to find the sum, a scalar, and then to divide
+each element of \(x\) by that scalar.
+
+\item Computing min, max, sum simultaneously.
+
+Assume we want to find basic statistics on a the data offered by
+coroutine \(v\). Each of the operators --- min, max, sum --- is a
+consumer of the data.
+
+The function {\tt mss} takes in a coroutine and returns 5 scalars,
+(i) minimum (ii) maximum (iii) sum (iv) number of non-null values, and (v) 
+total number of values seen. The simplest implementation would be to call, in
+sequence, {\tt min, max, sum}, on the same generator, \(x\).
+
+\item an even simpler example is {\tt y = add(x, x)}
+\ee
+
+\subsection{A proposed solution}
+
+One solution would be to introduce a new assignment operator, 
+\verb+:=+, for the Q programmer to use. 
+Then a \verb+:=+ b is the same as a = eval(b), Figure~\ref{eval}. In other words,
+we {\bf always} materialize a coroutine as a vector when it is given a name. 
+Under what conditions does a coroutine {\bf not} have a name? Take the examle
+{\tt x := add(sub(a, b), c)}. The co-routine returned by {\tt sub} is anonymous
+and is not materialized. However, the co-routine returned by {\tt add} is
+assigned to {\tt x} and hence materialized. 
+
+We believe that this addresses the problem of destructive reads since one can
+only read something that has been assigned and the act of assignment causes
+materialization after which destruction is not possible. {\em Please feel free
+to disagree with this claim.}
 
 
+The advantage of the \verb+:=+ operator is that it makes life predictable and
+understandable for the basic programmer. 
+The disadvantage of the \verb+:=+ operator is that it often causes
+materialization when that is not necessary. 
+
+So, what does the advanced programmer do? For one, they could use the regular
+equals operator but this does not fully solve the problem. It requires us to
+introduce a contract on the writer of a data generator.
+
+\subsubsection{The clock contract}
+
+A data generator is a coroutine that offers up consecutive chunks of
+data from a vector. Our example, wrap (Section~\ref{coro_from_vec}),
+is one such generator.  Locally, the data generator is required to
+support the following
+\be
+\item a local clock, \(C_l\), which is initialized to -1
+\item a local buffer which stores the last chunk offered up. Note that it is
+possible for a co-routine to {\tt yield} more than one chunk of data e.g., roup
+by which returns 2 vectors, one containing the values and the other containing
+the number of times that value occurs. 
+\ee
+
+The generator is required to support a clock input argument upon resume. 
+When the generator is resumed, we have two options, depending on the input
+clock, \(C_i\)
+\be
+\item 
+\(C_i = \bot\). When no clock is provided, the next chunk is generated and the \(C_l\) is incremented by one. The chunk is stored in the local buffer and
+{\tt yielded} to the resumer.
+\item \(C_i \neq \bot\) has four possibilities
+\be
+\item \(C_i < C_l\) or \(C_i > C_l+1\) --- error
+\item \(C_i = C_l\) --- the generator has nothing to do. 
+It {\bf yields} the data in the local buffer
+\item \(C_i = C_l+1\) --- the next chunk is generated, stored in the local
+buffer and {\bf yielded} to the resumer. \(C_l \leftarrow C_i\)
+\ee
+\ee
+
+\subsection{Advanced evaluation}
+
+We are now in a position to describe how the advanced programmer can get greater
+efficiencies. Consider the mms example described earlier. 
+
+\begin{verbatim}
+mms(x)
+  clock = 0, Initialize partial results for min, max, sum
+  p = coroutine.resume(x, clock)
+  Compute min(p), max(p), sum(p) and update partial results
+  Increment clock
+\end{verbatim}
+
+
+Need more details here, especially for other examples \TBC
