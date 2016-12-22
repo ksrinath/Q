@@ -12,6 +12,7 @@
 static void
 print_input(
     double **A, 
+    double **Aprime,
     double *x, 
     double *b, 
     int n
@@ -36,6 +37,10 @@ print_input(
     fprintf(stderr, "  = [ ");
     fprintf(stderr, " %3d ", (int)b[i]);
     fprintf(stderr, "] ");
+    // print Aprime
+    for ( int j = 0; j < n-i; j++ ) { 
+      fprintf(stderr, " %2d ", (int)Aprime[i][j]);
+    }
 
     fprintf(stderr, "\n");
   }
@@ -57,6 +62,7 @@ main(
 {
   int status = 0;
   double **A = NULL;
+  double **Aprime = NULL;
   double *x_expected = NULL;
   double *x = NULL; // allocated by positive_solver
   double *b = NULL;
@@ -78,7 +84,7 @@ main(
   /* Note that A is symmetric. We define top half */
   for ( int i = 0; i < n; i++ )  {
     for ( int j = i; j < n; j++ ) {
-      A[i][j] = (lrand48() % 16) - 16/2;
+      A[i][j] = llabs(lrand48() % 16) + 1;
     }
   }
   /* Now we copy top right half to bottom left half */
@@ -103,20 +109,43 @@ main(
     }
     b[i] = sum;
   }
-  print_input(A, x_expected, b, n);
+  /* The solver does not want a full matrix. So, we must convert A 
+     to Aprime, which is allocated and initialized differently. */
+  Aprime = (double **) malloc(n * sizeof(double*));
+  return_if_malloc_failed(Aprime);
+  for ( int i = 0; i < n; i++ ) { Aprime[i] = NULL; }
+  for ( int i = 0; i < n; i++ ) { 
+    Aprime[i] = (double *) malloc((n-i) * sizeof(double*));
+    return_if_malloc_failed(Aprime[i]);
+  }
+  for ( int i = 0; i < n; i++ ) { 
+    for ( int j = 0; j < n-i; j++ ) { 
+      Aprime[i][j] = A[i][j+i];
+    }
+  }
+  //-----------------
+  print_input(A, Aprime, x_expected, b, n);
   x = positive_solver(A, b, n);
 
   fprintf(stderr, "x from solver is [ ");
   for (int i=0; i < n; i++) {
     fprintf(stderr, " %lf ", x[i]);
   }
-  fprintf(stderr, "]. Checking commences \n");
+  fprintf(stderr, "].\nChecking commences \n");
   for (int j=0; j < n; j++) {
     if ( x[j] != x_expected[j] ) { 
+      fprintf(stderr, "FAILURE\n");
       go_BYE(-1); 
     }
   }
+  fprintf(stderr, "SUCCESS\n");
 BYE:
+  if ( Aprime != NULL ) { 
+    for ( int i = 0; i < n; i++ ) { 
+      free_if_non_null(Aprime[i]);
+    }
+  }
+  free_if_non_null(Aprime);
   if ( A != NULL ) { 
     for ( int i = 0; i < n; i++ ) { 
       free_if_non_null(A[i]);
