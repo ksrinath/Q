@@ -78,7 +78,7 @@ main(
   return_if_malloc_failed(A);
   for ( int i = 0; i < n; i++ ) { A[i] = NULL; }
   for ( int i = 0; i < n; i++ ) { 
-    A[i] = (double *) malloc(n * sizeof(double*));
+    A[i] = (double *) malloc(n * sizeof(double));
     return_if_malloc_failed(A[i]);
   }
   /* Note that A is symmetric. We define top half */
@@ -115,7 +115,7 @@ main(
   return_if_malloc_failed(Aprime);
   for ( int i = 0; i < n; i++ ) { Aprime[i] = NULL; }
   for ( int i = 0; i < n; i++ ) { 
-    Aprime[i] = (double *) malloc((n-i) * sizeof(double*));
+    Aprime[i] = (double *) malloc((n-i) * sizeof(double));
     return_if_malloc_failed(Aprime[i]);
   }
   for ( int i = 0; i < n; i++ ) { 
