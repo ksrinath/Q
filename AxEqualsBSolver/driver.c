@@ -125,7 +125,7 @@ main(
   }
   //-----------------
   print_input(A, Aprime, x_expected, b, n);
-  x = positive_solver(A, b, n);
+  x = positive_solver(Aprime, b, n);
 
   fprintf(stderr, "x from solver is [ ");
   for (int i=0; i < n; i++) {
