@@ -5,6 +5,7 @@
  * */
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <inttypes.h>
 #include "macros.h"
 #include "positive_solver.h"
@@ -66,6 +67,7 @@ main(
   double *x_expected = NULL;
   double *x = NULL; // allocated by positive_solver
   double *b = NULL;
+  double *bprime = NULL;
   int n = 0;
   srand48(RDTSC());
   fprintf(stderr, "Usage is ./driver <n> \n");
@@ -93,6 +95,8 @@ main(
       A[i][j] = A[j][i];
     }
   }
+  bprime = (double *) malloc(n * sizeof(double));
+  return_if_malloc_failed(bprime);
   b = (double *) malloc(n * sizeof(double));
   return_if_malloc_failed(b);
   x_expected = (double *) malloc(n * sizeof(double));
@@ -132,13 +136,31 @@ main(
     fprintf(stderr, " %lf ", x[i]);
   }
   fprintf(stderr, "].\nChecking commences \n");
-  for (int j=0; j < n; j++) {
-    if ( x[j] != x_expected[j] ) { 
-      fprintf(stderr, "FAILURE\n");
-      go_BYE(-1); 
+  // Compute b
+  for ( int i = 0; i < n; i++ ) { 
+    double sum = 0;
+    for ( int j = 0; j < n; j++ ) { 
+      sum += A[i][j] * x[j];
+    }
+    bprime[i] = sum;
+  }
+  bool error = false;
+  for (int i=0; i < n; i++) {
+    fprintf(stderr, " %lf %lf ", bprime[i], b[i]);
+    if ( abs(bprime[i] - b[i]) < 0.001 ) { 
+      fprintf(stderr, " MATCH \n");
+    }
+    else {
+      error = true; 
+      fprintf(stderr, " ERROR \n");
     }
   }
-  fprintf(stderr, "SUCCESS\n");
+  if ( error ) {
+    fprintf(stderr, "FAILURE\n");
+  }
+  else {
+    fprintf(stderr, "SUCCESS\n");
+  }
 BYE:
   if ( Aprime != NULL ) { 
     for ( int i = 0; i < n; i++ ) { 
@@ -155,5 +177,26 @@ BYE:
   free_if_non_null(x);
   free_if_non_null(x_expected);
   free_if_non_null(b);
+  free_if_non_null(bprime);
   return status;
 }
+/*
+My initial checking failed. 
+
+Andrew: Ok, the problem is that if A isn’t positive, there are
+multiple solutions. Rather than checking that x is what you expect,
+instead check that Ax = b There’s no reason why the algorithm would
+come up with the same solution when it’s not unique And since these
+random matrices aren’t being compelled to be positive, there will be
+multiple solutions
+
+Ramesh Subramonian: BTW, is this correct: A positive matrix is a matrix
+in which all the elements are greater than zero.
+
+Andrew Winkler: No, a positive matrix is one for which xtAx > 0 unless
+x is 0
+
+Ramesh Subramonian: ahah! remind me not to trust Google when I have a
+professional mathematician to rely on!
+
+*/
