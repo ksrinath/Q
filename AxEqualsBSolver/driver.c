@@ -204,7 +204,7 @@ main(
       Aprime[i][j] = AAT[i][j+i];
     }
   }
-  //-----------------
+  //-- Solver modifies b in place. hence we make a copy
   for ( int i = 0; i < n; i++ ) { 
     b_solver[i] = b[i];
   }
