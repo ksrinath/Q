@@ -1,4 +1,4 @@
-\startreport{Lazy Data generation in Q}
+\startreport{Q's Vector Data Type}
 \reportauthor{Ramesh Subramonian}
 \newcommand{\Assign}{\verb+:=+ }
 
@@ -16,13 +16,56 @@ Q supports only one data structure, a vector. All elements of the vector must be
 of the same type and, for starters, we will support only primitive types ---
 integers, floating point numbers and possibly constant length strings.
 
-There are two kinds of vectors, depending on whether the underlying data has
-been materialized i.e., the entire vector exists in some contiguous block of
-memory, optionally persisted to a file on disk.
+A vector is best thought of as an object. Lua provides a basic but entirely
+servicable object oriented support \url{https://www.lua.org/pil/16.html}. For
+something to be a vector, it must satisfy the following contractual obligations.
 
-A description of the data structures necessary to support a materialized vector
-is in Section~\ref{data_vector}. A description of how a vector is materialized
-is in Section~\ref{vec_from_coro}.
+\subsection{Notes}
+
+\subsubsection{Chunks}
+While a vector may have many elements, for efficiency reasons, 
+we will often access that data in chunks. The size of a chunk is fixed at the
+time the server boots up and stays the same as long as the server is running. In
+particular, this means that the same chunk size is used regardless of which
+vector is accessed. So, if chunk \(n\) refers to elements \(m_1\) through \( m_2\) of vector \(x\), then it refers to the same elements of any other vector \(y\). 
+
+In future implementations, we may relax this assumption. Why would we want to do
+so? The reason is that we want to adjust the length of the chunk to be small
+enough that intermediate results do not have to get flushed to lower levels of
+the memory hierarchy yet large enough that we get the benefits of vectorization.
+Given that the memory size is fixed, expressions which more partial results
+would prefer to have smaller chunk sizes.
+
+
+\subsection{Methods a vector must support}
+
+\be
+\item len() --- returns number of elements. There is a special case where this
+is allowed to return {\tt nil} indicating unknown but for starters, assume that it
+must return a positive integer. 
+%-------
+\item isnn() --- returns true or false, depending on whether there are null values. 
+%-------
+\item fldtype() --- returns kind of element in the vector. 
+We support 6 types.
+{\tt int8\_t, int16\_t, int32\_t, int64\_t, float, double}
+In the near  future, we will extend these to include constant length 
+strings and then unsigned integers. 
+%----------
+\item sz() ---  This is sizeof(fldtype) and
+hence this is redundant except when the fldtype is ``constant length
+string''.
+\item chunk(int) --- We have three cases here, depending on the input argument
+\(n\)
+\be
+\item \(0 < i \leq \lceil(len()/chunksize)\rceil\). 
+Returns a pointer to a contiguous area of memory of size (sz() \(\times\) chunksize. This is the \(i^{th}\) chunk.
+\item \(i > \lceil(len()/chunksize)\rceil\). Error.
+\item \(i < 0 \). 
+Returns a pointer to a contiguous area of memory of size (sz() \(\times\) len(). This is the entire vector.
+\ee
+\ee
+
 
 Whether or not a vector has been materialized, it should be possible for the
 vector to be consumed in chunks. The construct that supports this is called a
