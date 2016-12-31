@@ -12,75 +12,138 @@ so I will take the liberty of doing so.
 
 \section{Data storage and access}
 
-Q supports only one data structure, a vector. All elements of the vector must be
-of the same type and, for starters, we will support only primitive types ---
-integers, floating point numbers and possibly constant length strings.
+Q supports only one data structure, a vector. All elements of the
+vector must be of the same type and, for starters, we will support
+only primitive types --- integers, floating point numbers and possibly
+constant length strings.
 
-A vector is best thought of as an object. Lua provides a basic but entirely
-servicable object oriented support \url{https://www.lua.org/pil/16.html}. For
-something to be a vector, it must satisfy the following contractual obligations.
+A vector is best thought of as an object. Lua provides basic but
+entirely servicable object oriented
+support \url{https://www.lua.org/pil/16.html}. For something to be a
+vector, it must satisfy the following contractual obligations,
+Section~\ref{vector_contract}.
 
-\subsection{Notes}
+\section{Definitions}
+In this section, we make some important definitions which will be useful for the
+subsequent discussion. 
 
-\subsubsection{Chunks}
-While a vector may have many elements, for efficiency reasons, 
-we will often access that data in chunks. The size of a chunk is fixed at the
-time the server boots up and stays the same as long as the server is running. In
-particular, this means that the same chunk size is used regardless of which
-vector is accessed. So, if chunk \(n\) refers to elements \(m_1\) through \( m_2\) of vector \(x\), then it refers to the same elements of any other vector \(y\). 
+\subsection{Chunks}
+While a vector may have many elements, for efficiency reasons, we will
+often access that data in chunks. The size of a chunk is fixed at the
+time the server boots up and stays the same as long as the server is
+running. In particular, this means that the same chunk size is used
+regardless of which vector is accessed. So, if chunk \(n\) refers to
+elements \(m_1\) through \( m_2\) of vector \(x\), then it refers to
+the same elements of any other vector \(y\).
 
-In future implementations, we may relax this assumption. Why would we want to do
-so? The reason is that we want to adjust the length of the chunk to be small
-enough that intermediate results do not have to get flushed to lower levels of
-the memory hierarchy yet large enough that we get the benefits of vectorization.
-Given that the memory size is fixed, expressions which more partial results
-would prefer to have smaller chunk sizes.
+In future implementations, we may relax this assumption. Why would we
+want to do so? The reason is that we want to adjust the length of the
+chunk to be small enough that intermediate results do not have to get
+flushed to lower levels of the memory hierarchy yet large enough that
+we get the benefits of vectorization.  Given that the memory size is
+fixed, expressions which have more partial results would prefer to
+have smaller chunk sizes.
+
+\subsection{Materialization}
+A vector is said to have been completely materialized if it can return {\bf any}
+chunk of data without computation.
 
 
-\subsection{Methods a vector must support}
+\section{Vector Contract}
+\label{vector_contract}
 
 \be
-\item len() --- returns number of elements. There is a special case where this
-is allowed to return {\tt nil} indicating unknown but for starters, assume that it
-must return a positive integer. 
+\item len() --- returns number of elements. 
+
+Before the vector is completely materialized, the return value may or may not be
+known, in which case {\tt nil} is returned.
+Once the vector is completely materialized, it must return a non-negative
+integer .
+
+Can a vector have zero length? Any special treatment? \TBC
 %-------
-\item isnn() --- returns true or false, depending on whether there are null values. 
+\item num\_null() --- returns number of elements that are null.
+
+Once again, there are cases where we won't know for sure whether there are null
+values or not until the vector is completely materialized. In such cases, we
+will return {\tt nil}. 
+After the vector is completely materialized, we must a non-negative integer.
 %-------
 \item fldtype() --- returns kind of element in the vector. 
 We support 6 types.
+\begin{center}
 {\tt int8\_t, int16\_t, int32\_t, int64\_t, float, double}
-In the near  future, we will extend these to include constant length 
-strings and then unsigned integers. 
+\end{center}
+In the near  future, we will extend these to include 
+\begin{center}
+{\tt uint8\_t, uint16\_t, uint32\_t, uint64\_t, constant length strings}
+\end{center}
 %----------
+\item materialized() --- returns true or false depending on whether the vector
+has been completely materialized.
 \item sz() ---  This is sizeof(fldtype) and
 hence this is redundant except when the fldtype is ``constant length
 string''.
-\item chunk(int) --- We have three cases here, depending on the input argument
-\(n\)
+\item memo(bool) --- this tells the vector whether or not it should remember
+anything other than the most recent chunk that it generated. It must be called
+before any calls to chunk() are made. It returns true or false depending
+on whether it was called at the right time. 
+
+\item ismemo() --- returns true or false depending on how memo() was called
+earlier. If memo() was never called, it will return true, the default behavior.
+
+\item lastchunk() --- returns nil before any calls to chunk() are made. After
+that, returns the highest valid number with which chunk() was called.
+\item chunk(int n) --- The expected response depends as follows
 \be
-\item \(0 < i \leq \lceil(len()/chunksize)\rceil\). 
-Returns a pointer to a contiguous area of memory of size (sz() \(\times\) chunksize. This is the \(i^{th}\) chunk.
-\item \(i > \lceil(len()/chunksize)\rceil\). Error.
-\item \(i < 0 \). 
-Returns a pointer to a contiguous area of memory of size (sz() \(\times\) len(). This is the entire vector.
+\item If the vector has been materialized
+\be
+\item \(n \geq 0\) 
+\be
+\item If there are more than (n \(\times\) chunksize) elements, a pointer t
+contiguous area of memory containing that data is returned
+\item Else, nil
+\ee
+\item \(n < 0\)
+
+A pointer to a contiguous area of memory containing the data of the
+entire vector is returned
+\ee
+\item If the vector has {\bf not} been materialized
+\be
+\item If n == lastchunk(), the data for the last chunk generated is returned
+without any computation
+\item If n == lastchunk()+1, the next chunk is generated and the data is
+returned.
+\item If n \(>\) lastchunk()+1, error 
+\item If n \(<\) lastchunk(), 
+
+\be
+\item If memo set to true, then the data for that chunk is available to us and
+is returned
+\item If memo set to false, error
+\ee
+\ee
 \ee
 \ee
 
+{\bf Important}
+The novice Q programmer should be unaware of any of the details discussed in
+this section.
+The advanced Q programmer can squeeze additional performance by judiciously 
+\be
+\item using memo(false)
+\item using fold (Section~\ref{fold}) where several functions are applied inlock
+step to a vector
+\ee
 
-Whether or not a vector has been materialized, it should be possible for the
-vector to be consumed in chunks. The construct that supports this is called a
-data generator and is implemented as a co-routine. In
-Section~\ref{coro_from_vec}, we describe how a materialized vector is served up
-in chunks to a potential consumer.
+\section{Implementation Details}
+\label{vector_implementation}
 
-For the most part, we want the Q programmer to be unaware of whether or not 
-a vector has been materialized. The Q library writer will need to be keenly
-aware of this difference. As of now, this goal is aspirational not real as we
-will see in Section~\ref{pitfalls}.
-
-
-\subsection{Data as a vector}
-\label{data_vector}
+These represent suggestions on how to efficiently meet the contract described in
+Section~\ref{vector_contract}. While it behooves library writers to follow the
+same patterns when creating functions that return vectors, they are not bound to
+do so.
 
 A vector consists of the following
 \be
@@ -109,21 +172,12 @@ persisted, if at all.
 
 It is possible for nncdata and nnfilename to both be null.
 %----------------------
-\item {\bf len}, \verb+ssize_t+. number of elements
-\item {\bf isnn}, \verb+bool+, whether there are null values. 
-
-If isnn = true, then either nncdata or nnfilename should be non-null
-If isnn = false, then both nncdata and nnfilename should be null
+If there are null values, then either nncdata or nnfilename should be non-null.  Else, both nncdata and nnfilename should be null
 %-------
-\item {\bf fldtype}, how to interpret the memory. We intend to support 6 types.
-In the near  future, will extend to constant length strings and then unsigned integers. 
-\begin{verbatim}
-int8_t, int16_t, int32_t, int64_t, float, double
-\end{verbatim}
+\item {\bf lastchunkbuf}, this is a buffer which contains the last chunk
+generated. It is allocated before the first call to chunk(). 
 
-\item {\bf sz}, \verb+ssize_t+ size of each element. This is sizeof(fldtype) and
-hence this is redundant except when the fldtype is ``constant length
-string''.
+When is it freed? Do we care? 
 \ee
 \item {\bf M2}, a Lua table which contains optional meta-data such as 
 \be
@@ -143,295 +197,14 @@ required.
 \item \ldots
 \ee
 
-
 \ee
 
-\subsection{Creating a vector from a co-routine}
-\label{vec_from_coro}
+\subsection{Dealing with memo-ization}
 
-Figure~\ref{eval} describes eval(x), the function used to create a
-vector from a coroutine.
+When a vector has been materialized, its data is available either in (cdata,
+nncdata) or in (filename, nnfilename). In this case, returning any valid chunk
+is simply a matter of pointer arithmetic and an optional mmap step.
 
-\begin{figure}
-\centering
-\fbox{
-\begin{minipage}{20cm}
-\begin{tabbing} \hspace*{0.25in} \= \hspace*{0.25in} \= \hspace*{0.25in} \= \kill
-FILE *fp = NULL, *nnfp = NULL; \\
-char filename[] = "/tmp/myfileXXXX", nnfilename[] = "/tmp/myfileXXXX"; \\
-int clock = 0; \\
-ssize\_t len = 0; \\
-prev = nil; \\ 
-M1, M2 = coroutine.resume(x, -1);  /* Get meta data */ \\
-/* If resume of x returns a scalar, then M2 will be null; else, a table,
-even if an empty one */ \\
-{\bf if not} M2 {\bf then} isvec = true {\bf else} isvec = false {\bf endif} \\
-{\bf if } isvec {\bf then} \+ \\ 
-mktemp(filename); fp = fopen(filename, "wb"); \\
-{\bf if} M1.isnn {\bf then} mktemp(nnfilename); nnfp = fopen(nnfilename, "wb"); {\bf endif} \- \\
-{\bf endif} \\
-%---------------------------------------------
-{\bf for} ( ; ; ) {\bf do}  /* while chunks to consume */ \+ \\
-  rslt = coroutine.resume(x, clock); \\
-  {\bf if} {\bf not} rslt  {\bf then} /* prepare for return */ \+ \\
-    {\bf if not} prev  {\bf then} \+ \\
-      error("first invocation cannot return nil")' \- \\
-    {\bf endif} \\
-    {\bf if} isvec {\bf then} \+ \\ 
-      if ( fp != NULL ) { fclose(fp); }; if ( nnfp != NULL ) { fclose(nnfp); } \\
-      local x = \{\} \\
-      x.isnn = M1.isnn; x.filename = filename; x.fldtype = M1.fldtype \\
-      x.sz = M1.sz; x.len = len; \\
-      {\bf if } M1.isnn {\bf then} x.nnfilename = nnfilename {\bf endif} \\
-      return x; \- \\
-    {\bf else}  \+ \\ 
-      return prev; \- \\
-    {\bf endif} \- \\
-  {\bf endif} \\
-  {\bf if} isvec {\bf then} \+ \\
-    len += rslt.len; /* Cumulative length of vector */ \\
-    fwrite(rslt.cdata, rslt.len, sizeof(rslt.fldtype), fp); \\
-{\bf if} M1.isnn {\bf then} fwrite(rslt.nncdata, rslt.len, sizeof(char), nnfp); {\bf endif} \- \\
-  {\bf endif} \\ 
-  clock++; \\
-  prev = rslt; \- \\
-{\bf endfor}
-\end{tabbing}
-\end{minipage}
-}
-\label{eval}
-\caption{Function eval(x)}
-\end{figure}
+Let's consider what happens when chunk() is called on the vector for the firs
+time. The buffer, lastchunkbuf, is allocated and 
 
-\subsection{Creating a co-routine from a vector}
-\label{coro_from_vec}
-Figure~\ref{wrap} describes wrap(), the function used to create a
-coroutine from a vector.  The details of the function used to create
-the co-routine are in Figure~\ref{wrap}.
-\begin{verbatim}
-q['wrap'] = function (invec)
-  return coroutine.create(
-    function(clock)
-      ...
-    end
-  )
-\end{verbatim}
-\begin{figure}
-\centering
-\fbox{
-\begin{minipage}{20cm}
-\begin{tabbing} 
-\hspace*{0.25in} \= \hspace*{0.25in} \= \hspace*{0.25in} \= 
-\hspace*{0.25in} \= \hspace*{0.25in} \= \hspace*{0.25in} \= 
-\kill
-local o = \{\} ; \\
-local lclock = 0; \\
-{\bf while} clock \(\neq\) nil and clock \(<\) 0 {\bf then} \+ \\
-  coroutine.yield(o, invec.M1, invec.M2) \- \\
-{\bf endif} \\
-local X = invec.cdata; \\
-{\bf if} ( not X ) {\bf then} \+ \\ 
-  local struct stat filestat; \\
-  int fd = open(invec.filename, O\_RDONLY); \\
-  fstat(fd, \&filestat); filesz = filestat.st\_size; \\
-  assert(invec.len \(\times\) sizeof(invec.fldtype) \(\geq\) filesz) ; \\
-  X = mmap(NULL, filesz, PROT\_READ, fd, 0); \- \\
-{\bf endif} \\ 
-{\bf for} ( ever ) {\bf do} \+ \\ 
-  lclock++; lclock = clock or lclock; \\
-  local ssize\_t lb = (clock-1) \(\times\) chunksize \\
-  {\bf if } lb \(>\) len {\bf then return} {\bf endif} \\
-  local ssize\_t ub = min(len, lb + chunksize) \\
-  o.cdata = X + ( lb \(\times\) sizeof(invec.fldtype) ) \\
-  o.len   = (ub - lb); \\ 
-  o.fldtype = invec.fldtype; \\
-  o.sz = invec.sz; \\
-  coroutine.yield(o, x.M1, x.M2) \\
-{\bf while} clock \(\neq\) nil and clock \(<\) 0 {\bf then} \+ \\
-  coroutine.yield(o, invec.M1, invec.M2) \- \\
-{\bf endif} \- \\
-{\bf endfor} 
-\end{tabbing}
-\end{minipage}
-}
-\label{wrap}
-\caption{Function wrap(x)}
-\end{figure}
-
-\subsection{An example: add} 
-\label{example_add}
-
-let us consider the function add which returns a co-routine that will yeild up
-chunks of the results of adding two ``things'', whether they be vectors or
-co-routines. 
-The details of the function used to create the co-routine for add in
-Figure~\ref{add}. 
-\begin{verbatim}
-q['add'] = function (arg1, arg2)
-  return coroutine.create(
-    function()
-    end
-  )
-\end{verbatim}
-
-\begin{figure}
-\centering
-\fbox{
-\begin{minipage}{20cm}
-\begin{tabbing} \hspace*{0.25in} \= \hspace*{0.25in} \= \hspace*{0.25in} \= \kill
-{\bf if}  ( typeof(arg1) == "vector" ) {\bf then} arg1 = wrap(arg1) {\bf endif} \\
-{\bf if}  ( typeof(arg2) == "vector" ) {\bf then} arg2 = wrap(arg2) {\bf endif} \\
-assert( typeof(arg1) == "coroutine" ) \\
-assert( typeof(arg2) == "coroutine" ) \\
-f3sz, f3type, cfn = somefn(arg1, arg2) \TBC \\
-f3 = \{\}; f3.sz = f3sz; f3.fldtype = f3type;  \\
-f3.cdata = C.malloc(f3sz \(\times\) chunksize) \\
-{\bf do} forever \+ \\ 
-c1 = coroutine.resume(arg1) \\
-c2 = coroutine.resume(arg1) \\
-assert((c1 and c2) or (not c1 and not c2)) \\
-{\bf if} ( not c1 ) {\bf then} return {\bf endif} \\ 
-C.cfn(c1.cdata, c2.cdata, f3cdata) \\
-coroutine.yield(f3) \- \\
-{\bf endfor} \\
-\end{tabbing}
-\end{minipage}
-}
-\label{add}
-\caption{Function used to create co-routine for add(x, y)}
-\end{figure}
-
-
-
-
-\section{Data Generators --- Pitfalls and Solutions}
-\label{pitfalls}
-
-We have described the representation of data as vectors
-and how those vectors can be ``wrapped'' into co-routines which would offer
-up chunks of data at a time to consumers (Section~\ref{coro_from_vec}).
-
-A key thing to note is that when we write \(z = \mathrm{add}(x, y)\),
-no computation actually occurs. What does happen is that the function
-``add'' returns a coroutine which is stored in \(z\). If we were to
-say \(w = \mathrm{eval}(z)\), this would invoke the code described in
-Figure~\ref{eval} and create a variable called \(w\) with the fields
-described in Section~\ref{data_vector}. There are two key points to
-note
-\be
-\item the data for the vector has been ``materialized'' and stored in a contiguous
-block. Whether this has been persisted to disk is not relevant.
-\item the co-routine in \(z\) is dead. Subsequent calls to {\tt
-coroutine.resume(z, \ldots)} will fail.
-\ee
-In other words, reads are {\bf destructive}. This 
-poses a problem {\bf only} when there is more than one
-consumer. As an example, if we followed the eval with \(x = sum(z)\),
-this would throw an error. So, this breaks a pattern that we are used
-to in programming which is that when something is on the left hand
-side of an equals sign, we expect it to change. But if it is on the
-right of the equals sign, we do not expect it to change. Our
-expectation is that we can continue to use it on the right hand side
-until it is destroyed by some other action e.g., going out of
-scope, \ldots In Section~\ref{sticky_wicket}, we outline some very
-real examples where this is a problem.
-
-\subsection{Examples of tricky situations}
-\label{sticky_wicket}
-
-One can concoct several examples where destructive reads would land one in
-trouble. We provide a few below. 
-\be
-\item Normalizing a vector. 
-
-A common operation is to normalize a set of values so that they add up
-to 1.  e.g, \(y = \frac{x}{sum(x)}\). Note that \(x\) needs to be
-consumed twice, first to find the sum, a scalar, and then to divide
-each element of \(x\) by that scalar.
-
-\item Computing min, max, sum simultaneously.
-
-Assume we want to find basic statistics on a the data offered by
-coroutine \(v\). Each of the operators --- min, max, sum --- is a
-consumer of the data.
-
-The function {\tt mss} takes in a coroutine and returns 5 scalars,
-(i) minimum (ii) maximum (iii) sum (iv) number of non-null values, and (v) 
-total number of values seen. The simplest implementation would be to call, in
-sequence, {\tt min, max, sum}, on the same generator, \(x\).
-
-\item an even simpler example is {\tt y = add(x, x)}
-\ee
-
-\subsection{A proposed solution}
-
-One solution would be to introduce a new assignment operator, 
-\verb+:=+, for the Q programmer to use. 
-Then a \verb+:=+ b is the same as a = eval(b), Figure~\ref{eval}. In other words,
-we {\bf always} materialize a coroutine as a vector when it is given a name. 
-Under what conditions does a coroutine {\bf not} have a name? Take the examle
-{\tt x := add(sub(a, b), c)}. The co-routine returned by {\tt sub} is anonymous
-and is not materialized. However, the co-routine returned by {\tt add} is
-assigned to {\tt x} and hence materialized. 
-
-We believe that this addresses the problem of destructive reads since one can
-only read something that has been assigned and the act of assignment causes
-materialization after which destruction is not possible. {\em Please feel free
-to disagree with this claim.}
-
-
-The advantage of the \verb+:=+ operator is that it makes life predictable and
-understandable for the basic programmer. 
-The disadvantage of the \verb+:=+ operator is that it often causes
-materialization when that is not necessary. 
-
-So, what does the advanced programmer do? For one, they could use the regular
-equals operator but this does not fully solve the problem. It requires us to
-introduce a contract on the writer of a data generator.
-
-\subsubsection{The clock contract}
-
-A data generator is a coroutine that offers up consecutive chunks of
-data from a vector. Our example, wrap (Section~\ref{coro_from_vec}),
-is one such generator.  Locally, the data generator is required to
-support the following
-\be
-\item a local clock, \(C_l\), which is initialized to -1
-\item a local buffer which stores the last chunk offered up. Note that it is
-possible for a co-routine to {\tt yield} more than one chunk of data e.g., roup
-by which returns 2 vectors, one containing the values and the other containing
-the number of times that value occurs. 
-\ee
-
-The generator is required to support a clock input argument upon resume. 
-When the generator is resumed, we have two options, depending on the input
-clock, \(C_i\)
-\be
-\item 
-\(C_i = \bot\). When no clock is provided, the next chunk is generated and the \(C_l\) is incremented by one. The chunk is stored in the local buffer and
-{\tt yielded} to the resumer.
-\item \(C_i \neq \bot\) has four possibilities
-\be
-\item \(C_i < C_l\) or \(C_i > C_l+1\) --- error
-\item \(C_i = C_l\) --- the generator has nothing to do. 
-It {\bf yields} the data in the local buffer
-\item \(C_i = C_l+1\) --- the next chunk is generated, stored in the local
-buffer and {\bf yielded} to the resumer. \(C_l \leftarrow C_i\)
-\ee
-\ee
-
-\subsection{Advanced evaluation}
-
-We are now in a position to describe how the advanced programmer can get greater
-efficiencies. Consider the mms example described earlier. 
-
-\begin{verbatim}
-mms(x)
-  clock = 0, Initialize partial results for min, max, sum
-  p = coroutine.resume(x, clock)
-  Compute min(p), max(p), sum(p) and update partial results
-  Increment clock
-\end{verbatim}
-
-
-Need more details here, especially for other examples \TBC
