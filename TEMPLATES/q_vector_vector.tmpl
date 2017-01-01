@@ -3,7 +3,7 @@ return require 'CodeGen' {
    declaration = [[
 
 #include <inttypes.h>
-extern void 
+extern int
 ${name}(  
       ${op1type} *in1,  
       ${op2type} *in2,  
@@ -17,17 +17,17 @@ ${name}(
 
 #include "${name}.h"
 
-static
+static int 
 __operation(
       ${op1type} a,
       ${op2type} b, 
-      &${returntype} *ptr_c
+      ${returntype} *ptr_c
       )
       {
-      *ptr_c = $scalar_op(a, b)
+      *ptr_c = ${scalar_op};
       }
 
-void 
+int
 ${name}(  
       ${op1type} *in1,  
       ${op2type}  *in2,  
@@ -36,6 +36,7 @@ ${name}(
       )
 
 { 
+  int status = 0;
  ${op1type} inv1; 
  ${op2type} inv2; 
  ${returntype} outv; 
@@ -43,12 +44,14 @@ ${name}(
  for ( uint64_t i = 0; i < nR; i++ ) {  
    inv1 = *in1; 
    inv2 = *in2; 
-   status = __operation(inv1, inv2, &out);
+   status = __operation(inv1, inv2, &outv);
    *out = outv; 
    in1++; 
    in2++; 
    out++; 
  } 
+ BYE:
+ return status;
 }
 
    ]]

@@ -15,9 +15,9 @@ for i, v in ipairs(T) do
     for j, intype2 in ipairs(types) do 
       for k, outtype1 in ipairs(types) do 
         -- fn = _G['concat_static_checker']
-        local fn, scalar_op = concat_static_checker(intype1, intype2, outtype1)
+        local fn, outtype, scalar_op, includes = concat_static_checker(intype1, intype2, outtype1)
         if ( fn ) then
-          tmpl.name = base_name
+          tmpl.name = fn
           tmpl.op1type = intype1
           tmpl.op2type = intype2
           tmpl.returntype = outtype1
@@ -25,13 +25,13 @@ for i, v in ipairs(T) do
           -- print(tmpl 'declaration')
           doth = tmpl 'declaration'
           -- print("doth = ", doth)
-          local f = assert(io.open(fn .. ".h", "w"))
+          local f = assert(io.open("_" .. fn .. ".h", "w"))
           f:write(doth)
           f:close()
           -- print(tmpl 'definition')
           dotc = tmpl 'definition'
           -- print("dotc = ", dotc)
-          local f = assert(io.open(fn .. ".c", "w"))
+          local f = assert(io.open("_" .. fn .. ".c", "w"))
           f:write(dotc)
           f:close()
       else

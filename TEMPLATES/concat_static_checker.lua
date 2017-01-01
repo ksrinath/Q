@@ -49,8 +49,10 @@ function concat_static_checker(
   end
 
   if ( fouttype ~= nil ) then 
-    print("fouttype = ", fouttype)
-    print("l_outtype = ", l_outtype)
+    if ( ( fouttype == "float" ) or ( fouttype == "double") )  then
+      print("float and double are not valid destination types")
+      return nil
+    end
     if ( g_bitlen[fouttype] >= g_bitlen[l_outtype] ) then
       l_outtype = fouttype
     else
@@ -59,7 +61,7 @@ function concat_static_checker(
     end
   end
   fn = "concat_" .. f1type .. "_" .. f2type .. "_" .. l_outtype 
-  scalar_op = " ( (l_outtype)A << " .. shift .. " ) | B "
+  scalar_op = " ( (" .. l_outtype .. ")a << " .. shift .. " ) | b "
   includes = {"math", "curl/curl" }
   return fn, l_outtype, scalar_op, includes
 end
