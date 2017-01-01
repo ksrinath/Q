@@ -16,6 +16,17 @@ ${name}(
    definition = [[
 
 #include "${name}.h"
+
+static
+__operation(
+      ${op1type} a,
+      ${op2type} b, 
+      &${returntype} *ptr_c
+      )
+      {
+      *ptr_c = $scalar_op(a, b)
+      }
+
 void 
 ${name}(  
       ${op1type} *in1,  
@@ -32,7 +43,7 @@ ${name}(
  for ( uint64_t i = 0; i < nR; i++ ) {  
    inv1 = *in1; 
    inv2 = *in2; 
-   outv = inv1 ${operation} inv2; 
+   status = __operation(inv1, inv2, &out);
    *out = outv; 
    in1++; 
    in2++; 
