@@ -1,3 +1,4 @@
 return { 
   "concat", 
+  "vvadd",
 }
