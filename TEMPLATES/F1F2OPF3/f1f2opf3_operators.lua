@@ -9,7 +9,7 @@ return {
   "vvand",
   "vvor",
   "vvxor",
-  "vva_and_not_b",
+  "vvandnot",
   "vvgeq",
   "vvleq",
   "vvgt",

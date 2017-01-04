@@ -5,9 +5,9 @@ function vvadd_static_checker(
   fouttype
   )
     local sz1 = g_sz[f1type]
-    local sz2 = g_sz[f1type]
+    local sz2 = g_sz[f2type]
     local iorf1 = g_iorf[f1type]
-    local iorf2 = g_iorf[f1type]
+    local iorf2 = g_iorf[f2type]
     if ( ( iorf1 == "fixed" ) and ( iorf2 == "fixed" ) ) then
       iorf_outtype = "fixed" 
     else
@@ -24,6 +24,6 @@ function vvadd_static_checker(
       assert(g_sz[fouttype]) -- make sure that this is valid outtype
     end
     fn = "vvadd_" .. f1type .. "_" .. f2type .. "_" .. l_outtype 
-    scalar_op = "(" .. l_outtype ..") .. a + (" .. l_outtype .. ")b "
+    scalar_op = "a + b"
     return fn, l_outtype, scalar_op, includes
 end
