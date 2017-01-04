@@ -2,12 +2,12 @@
 
 require("aux")
 
-dofile 'globals.lua'
+dofile '../globals.lua'
 
-local srcdir = "../PRIMITIVES/src/" 
-local incdir = "../PRIMITIVES/inc/" 
+local srcdir = "../../PRIMITIVES/src/" 
+local incdir = "../../PRIMITIVES/inc/" 
 local T = dofile 'f1f2opf3_operators.lua' 
-local tmpl = dofile 'q_vector_vector.tmpl'
+local tmpl = dofile 'f1f2opf3.tmpl'
 local types = { 'int8_t', 'int16_t', 'int32_t', 'int64_t','float', 'double' }
 
 for i, v in ipairs(T) do
