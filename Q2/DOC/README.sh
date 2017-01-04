@@ -7,4 +7,4 @@ filename=$1
 touch .meta
 eval `../../latex/tools/setenv`
 make -f ../../latex/tools/docdir.mk ${filename}.pdf
-echo "Created ${filename}.pdf
+echo "Created ${filename}.pdf"
