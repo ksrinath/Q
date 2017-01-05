@@ -61,7 +61,7 @@ function concat_static_checker(
     end
   end
   fn = "concat_" .. f1type .. "_" .. f2type .. "_" .. l_outtype 
-  scalar_op = " ( (" .. l_outtype .. ")a << " .. shift .. " ) | b "
+  scalar_op = " c = ( (" .. l_outtype .. ")a << " .. shift .. " ) | b "
   includes = {"math", "curl/curl" }
   return fn, l_outtype, scalar_op, includes
 end

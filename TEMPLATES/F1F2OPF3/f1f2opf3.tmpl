@@ -8,6 +8,7 @@ ${name}(
       ${op1type} *in1,  
       ${op2type} *in2,  
       uint64_t nR,  
+      ${opt_args}
       ${returntype} * restrict out 
       ) 
 ;
@@ -24,7 +25,9 @@ __operation(
       ${returntype} *ptr_c
       )
       {
-      *ptr_c = ${scalar_op};
+      ${returntype} c;
+      ${scalar_op};
+      *ptr_c = c;
       }
 
 int
