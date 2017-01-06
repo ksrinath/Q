@@ -18,6 +18,6 @@ function vvrem_static_checker(
          outtype = f2type
     end
     fn = "vvrem_" .. f1type .. "_" .. f2type .. "_" .. outtype
-    scalar_op = " a % b "
+    scalar_op = " c = a % b "
     return fn, outtype, scalar_op, includes
 end
