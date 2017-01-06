@@ -147,7 +147,7 @@ main(
   double **AAT = NULL; // A times A transpose
   double **Aprime = NULL;
   double *x_expected = NULL;
-  double *x = NULL; // allocated by positive_solver
+  double *x = NULL; 
   double *b = NULL;
   double *bprime = NULL;
   double *b_solver = NULL; // since solver messes up original b
@@ -209,7 +209,10 @@ main(
     b_solver[i] = b[i];
   }
   print_input(AAT, Aprime, x_expected, b_solver, n);
-  x = positive_solver(Aprime, b_solver, n);
+  x = (double *) malloc(n * sizeof(double));
+  return_if_malloc_failed(x);
+  status = positive_solver(Aprime, x, b_solver, n);
+  cBYE(status);
 
   fprintf(stderr, "x from solver is [ ");
   for (int i=0; i < n; i++) {

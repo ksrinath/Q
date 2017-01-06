@@ -28,3 +28,34 @@ cat vvand_static_checker.lua | \
 #   sed s'/vvand_/vvandnot/'g | \
 #   sed s'/scalar_op = .*$/scalar_op = "( a && (\~b) )" /'g \
 #   > vvandnot_static_checker.lua
+
+cat vveq_static_checker.lua | \
+  sed s'/vveq_/vvneq_/'g | \
+  sed s'/scalar_op = .*$/scalar_op = "( a != b )" /'g \
+  > vvneq_static_checker.lua
+
+cat vveq_static_checker.lua | \
+  sed s'/vveq_/vvgt_/'g | \
+  sed s'/scalar_op = .*$/scalar_op = "( a > b )" /'g \
+  > vvgt_static_checker.lua
+
+cat vveq_static_checker.lua | \
+  sed s'/vveq_/vvlt_/'g | \
+  sed s'/scalar_op = .*$/scalar_op = "( a < b )" /'g \
+  > vvlt_static_checker.lua
+
+cat vveq_static_checker.lua | \
+  sed s'/vveq_/vvgeq_/'g | \
+  sed s'/scalar_op = .*$/scalar_op = "( a >= b )" /'g \
+  > vvgeq_static_checker.lua
+
+cat vveq_static_checker.lua | \
+  sed s'/vveq_/vvleq_/'g | \
+  sed s'/scalar_op = .*$/scalar_op = "( a <= b )" /'g \
+  > vvleq_static_checker.lua
+
+cat vveq_static_checker.lua | \
+  sed s'/vveq_/vvneq_/'g | \
+  sed s'/scalar_op = .*$/scalar_op = "( a != b )" /'g \
+  > vvneq_static_checker.lua
+

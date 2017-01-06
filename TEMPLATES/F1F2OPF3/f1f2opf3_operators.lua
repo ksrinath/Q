@@ -16,5 +16,5 @@ return {
   "vvlt",
   "vveq",
   "vvneq",
-  "vvhash",
+--  "vvhash",
 }

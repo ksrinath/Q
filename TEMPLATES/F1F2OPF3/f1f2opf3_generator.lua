@@ -12,13 +12,14 @@ local types = { 'int8_t', 'int16_t', 'int32_t', 'int64_t','float', 'double' }
 
 for i, v in ipairs(T) do
   local base_name = v
-  print("base_name = ", base_name);
   local str = 'require \'' .. base_name .. '_static_checker\''
 --  require concat_static_checker.lua
   load(str)()
   for i, intype1 in ipairs(types) do 
     for j, intype2 in ipairs(types) do 
       for k, outtype1 in ipairs(types) do 
+        stat_chk = base_name .. '_static_checker'
+        assert(_G[stat_chk], "no checker for " .. base_name)
         local fn, outtype, scalar_op, includes = 
         _G[base_name .. '_static_checker'](intype1, intype2, outtype1)
         if ( fn ) then
@@ -45,13 +46,11 @@ for i, v in ipairs(T) do
           local skip = false; local decided = false
           if ( ( B == nil ) and ( W == nil ) ) then 
             skip = false
-            print("1: Setting decided to true")
             decided = true
           end
           if ( ( B ~= nil ) and ( decided == false ) ) then
             if B[fn] then skip = true else skip = false end 
             decided = true
-            print("2: Setting decided to true")
           end
           if ( ( W ~= nil ) and ( decided == false ) ) then
             if W[fn] then skip = false else skip = true end 
