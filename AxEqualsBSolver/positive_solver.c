@@ -7,7 +7,7 @@ Yet it's essentially equivalent to that more labored approach, so its performanc
 #include <stdlib.h>
 #include <stdio.h>
 #include "positive_solver.h"
-void _positive_solver(
+int _positive_solver(
     double ** A, 
     double * b, 
     double * x, 
@@ -15,15 +15,15 @@ void _positive_solver(
     ) 
 {
   printf("The alpha is %f\n", A[0][0]);
-  if (n < 1) exit(-1);
+  if (n < 1) { return -1; }
   if (n == 1) {
     if (A[0][0] == 0.0) {
         if (b[0] != 0.0) exit(-1); /* or close enough... */
         x[0] = 0.0;
-        return;
+        return 0;
     }
     x[0] = b[0] / A[0][0];
-    return;
+    return 0;
   }
 
   double * bvec = b + 1;
@@ -34,36 +34,37 @@ void _positive_solver(
   int m = n -1;
 
   if (A[0][0] != 0.0) {
-      for(int j=0; j < m; j++){
-        bvec[j] -= Avec[j] * b[0] / A[0][0];
-        for(int i=0; i < m - j; i++)
-          Asub[i][j] -= Avec[i] * Avec[i+j] / A[0][0];
-      }
+    for(int j=0; j < m; j++){
+      bvec[j] -= Avec[j] * b[0] / A[0][0];
+      for(int i=0; i < m - j; i++)
+        Asub[i][j] -= Avec[i] * Avec[i+j] / A[0][0];
+    }
   } /* else check that Avec is 0 */
 
-  _positive_solver(Asub, bvec, xvec, m);
+  int status = _positive_solver(Asub, bvec, xvec, m);
+  if ( status < 0 ) { return status; }
 
   if (A[0][0] == 0.0) {
       if (b[0] != 0.0) exit(-1); /* or close enough... */
       x[0] = 0.0;
-      return;
+      return 0;
   }
 
   double p = 0; for(int k=0; k<m; k++) p += Avec[k] * xvec[k];
 
   x[0] = (b[0] - p) / A[0][0];
 
-  return;
+  return 0;
 }
 
 #include <malloc.h>
-double * positive_solver(
+int positive_solver(
     double ** A, 
+    double *x,
     double * b, 
     int n
     ) 
 {
-  double * x = (double *) malloc(n * sizeof(double));
-  _positive_solver(A, b, x, n);
-  return x;
+  int status = _positive_solver(A, b, x, n);
+  return status;
 }
