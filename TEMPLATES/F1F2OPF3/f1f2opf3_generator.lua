@@ -40,7 +40,7 @@ for i, v in ipairs(T) do
           tmpl.name = fn
           tmpl.op1type = intype1
           tmpl.op2type = intype2
-          tmpl.returntype = outtype1
+          tmpl.returntype = outtype
           tmpl.scalar_op = scalar_op
           -- process black/white lists
           local skip = false; local decided = false

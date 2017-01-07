@@ -5,8 +5,8 @@ return require 'CodeGen' {
 #include <inttypes.h>
 extern int
 ${name}(  
-      ${op1type} *in1,  
-      ${op2type} *in2,  
+      const ${op1type} * restrict in1,  
+      const ${op2type} * restrict in2,  
       uint64_t nR,  
       ${opt_args}
       ${returntype} * restrict out 
@@ -18,7 +18,7 @@ ${name}(
 
 #include "_${name}.h"
 
-static int 
+static void
 __operation(
       ${op1type} a,
       ${op2type} b, 
@@ -32,8 +32,8 @@ __operation(
 
 int
 ${name}(  
-      ${op1type} *in1,  
-      ${op2type}  *in2,  
+      const ${op1type} * restrict in1,  
+      const ${op2type} * restrict in2,  
       uint64_t nR,  
       ${returntype} * restrict out 
       )
@@ -47,13 +47,12 @@ ${name}(
  for ( uint64_t i = 0; i < nR; i++ ) {  
    inv1 = *in1; 
    inv2 = *in2; 
-   status = __operation(inv1, inv2, &outv);
+   __operation(inv1, inv2, &outv);
    *out = outv; 
    in1++; 
    in2++; 
    out++; 
  } 
- BYE:
  return status;
 }
 
