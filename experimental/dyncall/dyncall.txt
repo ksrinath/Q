@@ -1,0 +1,49 @@
+
+We would like to confirm that we can call any of the core C functions 
+from Lua using both Dyncall and LuaJit FFI
+
+In particular, all C functions have the following signature
+
+1) they will *ALL* return a single integer as a status
+
+2) if the function needs to return a  value, then it will look something 
+like the example shown below. Note that in this case, status is not used 
+but in general it is used to indicate that something has gone wrong.
+
+int
+sum(
+  int32_t *X,
+  int n,
+  int64_t *ptr_sum
+)
+{
+  int status = 0;
+  uint64_t sum = 0;
+  for ( int i = 0; i < n; i++ ) { 
+    sum += X[i];
+  }
+  *ptr_sum = sum;
+  return status;
+}
+
+1) Note the difference between X and ptr_sum. While both are pointers, 
+their meaning is different. X refers to an array whereas ptr_sum is the 
+address of a scalar.
+
+=================================================
+
+3) The 6 types that need to be supported are
+int8_t, int16_t, int32_t, int64_t, float, double, char
+
+Bonus points for being able to support 
+uint8_t, uint16_t, uint32_t, uint64_t
+
+=================================================
+
+Assignment 1: Specifically, what I would like you to do is to make sure 
+that we can support *ALL* the types mentioned above. 
+
+Assignment 2: Would like a wrapper which makes the Lua programmer 
+oblivious of whether FFI is being used or Dyncall is being used. Under 
+the covers, depending on some global variable, we will go down one path 
+or the other.
