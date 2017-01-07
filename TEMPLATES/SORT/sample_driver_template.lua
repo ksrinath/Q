@@ -2,12 +2,19 @@
 
 local tmpl = dofile 'qsort.tmpl'
 
-tmpl.SRTORDR = 'asc'
-tmpl.ELEMTYPE = 'uint64_t'
+tmpl.SORT_ORDER = 'asc'
+tmpl.FLDTYPE = 'uint64_t'
 tmpl.COMPARATOR = '>'
 -- print(tmpl 'declaration')
 doth = tmpl 'declaration'
-print("doth = ", doth)
+print("doth in _foo.h")
+local f = assert(io.open("_foo.h", "w"))
+f:write(doth)
+f:close()
+
 -- print(tmpl 'definition')
 dotc = tmpl 'definition'
-print("dotc = ", dotc)
+print("dotc in _foo.c")
+local f = assert(io.open("_foo.c", "w"))
+f:write(dotc)
+f:close()
