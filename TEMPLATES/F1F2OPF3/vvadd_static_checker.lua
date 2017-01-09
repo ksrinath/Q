@@ -23,7 +23,10 @@ function vvadd_static_checker(
       l_outtype = fouttype
       assert(g_sz[fouttype]) -- make sure that this is valid outtype
     end
-    fn = "vvadd_" .. f1type .. "_" .. f2type .. "_" .. l_outtype 
-    scalar_op = "c = a + b"
-    return fn, l_outtype, scalar_op, includes
+    substitutions.name = "vvadd_" .. f1type .. "_" .. f2type .. "_" .. l_outtype 
+    substitutions.in1type = f1type
+    substitutions.in2type = f2type
+    substitutions.returntype = l_outtype
+    substitutions.name = "c = a + b"
+    return substitutions, includes
 end

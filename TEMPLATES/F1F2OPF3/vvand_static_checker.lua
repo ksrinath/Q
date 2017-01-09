@@ -8,7 +8,9 @@ function vvand_static_checker(
     return nil
   end
   outtype = "int8_t"
-  fn = "vvand_" .. f1type .. "_" .. f2type 
-  scalar_op = "c = a && b"
-  return fn, outtype, scalar_op, includes
+  substitutions.fn = "vvand_" .. f1type .. "_" .. f2type 
+  substitutions.in1type = f1type
+  substitutions.in2type = f2type
+  substitutions.scalar_op = "c = a && b"
+  return substitutions, includes
 end

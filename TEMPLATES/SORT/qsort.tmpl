@@ -32,13 +32,20 @@ return require 'CodeGen' {
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 #ifdef MAC_OSX
 #include "macstuff.h"
 #endif
 
+extern void
+qsort_${SORT_ORDER}_${FLDTYPE} (
+	    void *const pbase, 
+	    ssize_t total_elems
+	    );
 ]],
 definition = [[
 
+#include "_${NAME}.h"
 
 /* Byte-wise swap two items of size SIZE. */
 /*
@@ -58,9 +65,9 @@ definition = [[
     */
 #define SWAP(a, b, size) \
 { \
-  __TYPE2__ *ia = (__TYPE2__ *)a; \
-  __TYPE2__ *ib = (__TYPE2__ *)b; \
-  __TYPE2__ itmp = *ia; \
+  ${FLDTYPE} *ia = (${FLDTYPE} *)a; \
+  ${FLDTYPE} *ib = (${FLDTYPE} *)b; \
+  ${FLDTYPE} itmp = *ia; \
   *ia = *ib; \
   *ib = itmp; \
 }
@@ -114,18 +121,16 @@ typedef struct
 
 // START FUNC DECL
 void
-qsort___ORDR_____TYPE__ (
+${NAME} ( 
 	    void *const pbase, 
-	    size_t total_elems, 
-	    size_t size, 
-	    __compar_fn_t cmp
+	    ssize_t total_elems
 	    )
 // STOP FUNC DECL
 {
   register char *base_ptr = (char *) pbase;
-  if ( size != sizeof(__TYPE2__) ) { exit(1); }
 
-  const size_t max_thresh = MAX_THRESH * size;
+  int size = sizeof(${FLDTYPE});
+  const size_t max_thresh = MAX_THRESH * size; 
 
   if (total_elems == 0) {
     /* Avoid lossage with unsigned arithmetic below.  */
@@ -153,18 +158,18 @@ qsort___ORDR_____TYPE__ (
       char *mid = lo + size * ((hi - lo) / size >> 1);
 
       // if ( (*cmp) ((void *) mid, (void *) lo) < 0) {
-      if ( *((__TYPE2__ *)mid) __ORDR2__ *((__TYPE2__ *)lo) ) {
+      if ( *((${FLDTYPE} *)mid) ${COMPARATOR} *((${FLDTYPE} *)lo) ) {
 	SWAP (mid, lo, size);
       }
       // if ( (*cmp) ((void *) hi, (void *) mid) < 0) {
-      if ( *((__TYPE2__ *)hi) __ORDR2__ *((__TYPE2__ *)mid) ) {
+      if ( *((${FLDTYPE} *)hi) ${COMPARATOR} *((${FLDTYPE} *)mid) ) {
 	SWAP (mid, hi, size);
       }
       else {
 	goto jump_over;
       }
       // if ( (*cmp) ((void *) mid, (void *) lo) < 0) {
-      if ( *((__TYPE2__ *)mid) __ORDR2__ *((__TYPE2__ *)lo) ) {
+      if ( *((${FLDTYPE} *)mid) ${COMPARATOR} *((${FLDTYPE} *)lo) ) {
 	SWAP (mid, lo, size);
       }
     jump_over:;
@@ -177,12 +182,12 @@ qsort___ORDR_____TYPE__ (
 	 that this algorithm runs much faster than others. */
       do {
 	// while ((*cmp) ((void *) left_ptr, (void *) mid) < 0) {
-	while ( *((__TYPE2__ *)left_ptr) __ORDR2__ *((__TYPE2__ *)mid) ) {
+	while ( *((${FLDTYPE} *)left_ptr) ${COMPARATOR} *((${FLDTYPE} *)mid) ) {
 	  left_ptr += size;
 	}
 
 	// while ((*cmp) ((void *) mid, (void *) right_ptr) < 0) {
-	while ( *((__TYPE2__ *)mid) __ORDR2__ *((__TYPE2__ *)right_ptr) ) {
+	while ( *((${FLDTYPE} *)mid) ${COMPARATOR} *((${FLDTYPE} *)right_ptr) ) {
 	  right_ptr -= size;
 	}
 
@@ -256,7 +261,7 @@ qsort___ORDR_____TYPE__ (
 
     for (run_ptr = tmp_ptr + size; run_ptr <= thresh; run_ptr += size) {
       // if ((*cmp) ((void *) run_ptr, (void *) tmp_ptr) < 0) {
-      if (  *((__TYPE2__ *)run_ptr) __ORDR2__ *((__TYPE2__ *) tmp_ptr) ) {
+      if (  *((${FLDTYPE} *)run_ptr) ${COMPARATOR} *((${FLDTYPE} *) tmp_ptr) ) {
         tmp_ptr = run_ptr;
       }
     }
@@ -271,7 +276,7 @@ qsort___ORDR_____TYPE__ (
     while ((run_ptr += size) <= end_ptr) {
       tmp_ptr = run_ptr - size;
       // while ((*cmp) ((void *) run_ptr, (void *) tmp_ptr) < 0) {
-      while ( *((__TYPE2__ *)run_ptr) __ORDR2__ *((__TYPE2__ *)tmp_ptr) ) {
+      while ( *((${FLDTYPE} *)run_ptr) ${COMPARATOR} *((${FLDTYPE} *)tmp_ptr) ) {
 	tmp_ptr -= size;
       }
 
