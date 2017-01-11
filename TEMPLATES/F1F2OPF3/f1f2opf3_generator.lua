@@ -1,5 +1,6 @@
 #!/usr/bin/env lua
 
+package.path = package.path.. ";../?.lua"
 require("aux")
 
 dofile '../globals.lua'

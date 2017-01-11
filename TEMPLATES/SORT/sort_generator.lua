@@ -1,5 +1,6 @@
 #!/usr/bin/env lua
 
+package.path = package.path.. ";../?.lua"
 local tmpl = dofile 'qsort.tmpl'
 
 order = { 'asc', 'dsc' }
