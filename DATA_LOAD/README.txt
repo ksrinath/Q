@@ -75,7 +75,9 @@ else, double.
 In order to explain Lines 5 and 6, we need to introduce the concept of
 a dictionary.
 
-
+Q does not (for now) support variable length character strings as a data type.
+We will talk about constant length character strings elsewhere. So, when we read
+a column that contains a character string, we convert it into an integer. 
 
 
 
