@@ -1,0 +1,220 @@
+\documentclass[letterpaper]{article}
+\input{../latex/styles/ramesh_abbreviations}
+\usepackage{times}
+\usepackage{helvet}
+\usepackage{courier}
+\usepackage{hyperref}
+\usepackage{fancyheadings}
+\pagestyle{fancy}
+\usepackage{pmc}
+\usepackage{graphicx}
+\setlength\textwidth{6.5in}
+\setlength\textheight{8.5in}
+\begin{document}
+\title{Loading CSV files into Q}
+\author{ Ramesh Subramonian }
+\maketitle
+\thispagestyle{fancy}
+\lfoot{{\small Data Analytics Team}}
+\cfoot{}
+\rfoot{{\small \thepage}}
+
+
+\begin{abstract}
+A At a very high level, when we load data from a CSV file, we are
+converting data presented in ascii in row format to a set of files in
+binary format, one for each of the columns in the CSV
+file. Technically, we are creating a table of vectors but we will get
+to that detail later in this document.
+\end{abstract}
+
+\section{Introduction}
+
+\subsection{Pre-Reading Material}
+
+read \url{https://www.lua.org/pil/12.html}
+
+\subsection{What is a CSV file?}
+A CSV file is an ascii file such that:
+
+\be
+\item records are terminated by eoln character \verb+'\n'+
+\item fields are separated by comma character
+\item fields may be enclosed by a double-quote character 
+e.g., \verb+1,"foo",2.3+
+\item a single record can span multiple lines
+\item a null value can be represented either by 2 consecutive 
+double-quote characters e.g., the following lines are identical
+\begin{verbatim}
+foo,,2
+foo,"",2
+"foo,"","2"
+\end{verbatim}
+\item all rows must have the same number of fields 
+\item Three characters have special meanings - comma, double quote and
+  eoln. When we want these to occur as part of the value, they must be
+  preceded by a back-slash. So, we really have 4 special
+  characters. For example, the value \verb+ "abc\,\\\""+ has 6
+  characters (1) a (2) b (3) c (4) comma (5) backslash and (6) double
+  quote
+
+\ee
+At some future point, we might want to make these customizable
+\be
+\item field separator, currently comma
+\item record delimiter, currently eoln
+\item field opener, currently double-quote
+\item field closer, currently double-quote
+  \ee
+
+\section{Q syntax}
+The Q operator that loads a CSV file is as follows
+\begin{verbatim}
+X = load(data="foo.csv", meta_data = M, has_hdr_line = true)
+\end{verbatim}
+
+where M is a table that has \(N\) values, one for each of the \(N\) columns
+that we expect to find in foo.csv
+
+What does M look like?
+\begin{verbatim}
+M = { { name = "", field_type = "" },
+{ name = "f1", type = "int32_t" },
+{ name = "f2", type = "integer" },
+{ name = "f3", type = "number" },
+{ name = "f4", size = 16 },
+{ name = "f5", type = "varchar", dict = "D1", is_dict = false }, 
+{ name = "f6", type = "varchar", dict = "D2", is_dict = true, add=true},
+{ name = "f7", type = "varchar", dict = "D3", is_dict = true, add=false},
+    }
+\end{verbatim}
+
+Let's go through these lines one at a time. The table has 6 columns.
+
+\be
+\item 
+The first line says that the first column should be ignored - hence we
+do not need to provide a name or a field type
+\item 
+Line 2 for field f1 says that we expect all values of the second column to
+be valid values for a variable of type \verb+int32_t+ and that the
+resulting vector is of type \verb+int32_t+
+
+\item 
+Loine 3 for field f2  says that we expect all values of the third column to
+be valid values for a variable of type \verb+int64_t+ and that the
+resulting vector is of type
+\verb+int8_t, int16_t, int32_t, int64_t+. The smallest field that
+can accomodate the values will be used. In other words, if all values are
+between -32768 and +32767, then we will use \verb+int16_t+
+\framebox{Not for version 1. }
+\item 
+Line 4 for field f3 says that we expect all values of the third column to
+be valid values for a variable of type double and that the resulting
+vector is of type
+\verb+int8_t, int16_t, int32_t, int64_t, float, double+. If all values
+can be represented by an integer, the smallest integer field will be
+used. Else, float will be used if it causes no loss; else, double.
+\framebox{Not for version 1. }
+\item Line 5 for field f4 says that this is a constant length string. The size
+  includes the null character used to terminate the string. So, 0123456789ABCDE
+  is a valid string for length 16 but 0123456789ABCDEDF is not. If the input
+  value is less than 15 characters, it is padded with null characters so that
+  the total length of the field (as written to the binary file) is 16
+  characters. 
+
+\item 
+In order to explain lines with ``dict'', we need to introduce the concept of
+a dictionary, Section~\ref{dictionary}
+\ee
+
+\section{Dictionaries}
+\label{dictionary}
+
+Q does not (for now) support variable length character strings as a
+data type.  So, when we read a column that contains a character string,
+we convert it into an integer. A dictionary is the data structure that allows us
+to deterministically map from strings to integers on the input and vice versa on
+the output.
+
+During loading, there are two main cases to consider
+\be
+\item \verb+is_dict=false+ no dictionary exists for this field and one must be created. If D1 is such
+  a dictionary, then no other column in this load statement can use D1
+\item \verb+is_dict=true+ a dictionary exists for this field and must be used. In this case, we have
+  two sub-cases.  If you come across a string which does not exist in the dictionary, 
+  \be
+\item \verb+add=true+ can you add to the dictionary. 
+\item \verb+add=false+ can you {\bf not} add to the dictionary. 
+  \ee
+  If D1 is such a dictionary, then it can be used by other columns so long as they use it in a similar manner
+  \ee
+
+A few important implementation notes:
+\be
+\item 
+When the system shuts down, it is important that the dictionaries are persisted
+to disk because they will need to be restored when the 
+\item Our current approach relies on the dictionaries to be Lua tables i.e., we
+  are relying on Lua's fairly efficient implementataion of hash tables. However,
+  if the number and size of these fields becomes very large, then we will need
+  to explore other alternatives e.g. other key value stores like Redis, LevelDB,
+  \ldots
+  \ee
+
+\section{Custom Types}
+\label{custom_types}
+
+Types are registered globally with the following information. 
+\be
+\item short code 
+\item C equivalent
+\item description (optional)
+\item input text converter. This is a C function which has the
+  signature shown below. 
+The function returns 0 if the conversion was successful and a
+  negative number otherwise
+  Assume that the short code
+  is {\tt B} and that the C equivalent is \verb+int8_t+. In that case, the
+  converter is 
+  \begin{verbatim}
+int txt_to_c( const char *in, int8_t *ptr_out)
+\end{verbatim}
+\item output text converter. This is a C function which has the
+  signature shown below. 
+The function returns 0 if the conversion was successful and a
+  negative number otherwise
+  Assume that the short code
+  is {\tt B} and that the C equivalent is \verb+int8_t+. In that case, the
+  converter is 
+  \begin{verbatim}
+  int c_to_txt(int8_t in, char *out, ssize_t sz_out)
+\end{verbatim}
+  \ee
+
+The 6 types that come with the base Q installation are in
+Table~\ref{tbl_default_types}
+
+\begin{table}[hb]
+\centering
+\begin{tabular}{|l|l|l|l|l|l|} \hline \hline
+  {\bf Short Code} & {\bf C Equivalent} & {\bf Description} %
+  & {\bf Input Converter} & {\bf output Converter} \\ \hline \hline
+  c & \verb+int8_t+ &  & strtod & fprintf, \%d\\ \hline
+  s & \verb+int16_t+ & & strtod & fprintf, \%d\\ \hline
+  i & \verb+int32_t+ & & strtod & fprintf, \%d\\ \hline
+  l & \verb+int64_t+ & & strtoll & fprintf, \%lld \\ \hline
+  f & \verb+float+ &   & strtof & fprintf, \%f\\ \hline
+  d & \verb+double+ &  & strtold & fprintf, \%lf\\ \hline
+  t & struct tm & timestamp & strptime+ & strftime \\ \hline
+\hline
+\end{tabular}
+\caption{Pre-built types}
+\label{tbl_default_types}
+\end{table}
+
+
+
+
+
+\end{document}
