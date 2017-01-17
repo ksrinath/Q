@@ -15,7 +15,7 @@ vagg = function (l, v, elemType, aggType, aggFn)
 
   local ffi = require("ffi")	--Loading the FFI library
   local decl = "int " .. aggFn .. "(" .. elemType .. " *X, int n, " .. aggType .. " *res);"
-  print("\nCalling "..decl) 
+  --print("\nCalling "..decl) 
   ffi.cdef(decl)	--Add a C declaration for the C function 
   
   local n = table.getn(v)
