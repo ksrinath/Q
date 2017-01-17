@@ -16,7 +16,7 @@ int int32_sum(int32_t *X, int n, int64_t *ptr_sum)
     sum += X[i];
   }
   *ptr_sum = sum;
-  printf("\nSum = %ld", *ptr_sum); //prints the sum calculated here
+  printf("\nSum = %llu", *ptr_sum); //prints the sum calculated here
   return status;
 }
 
@@ -64,14 +64,14 @@ int int64_sum(int64_t *X, int n, int64_t *ptr_sum)
   printf("\nArray is:");
   int i;
   for (i = 0; i < n; i++)
-  	printf("%ld, ", X[i]);
+  	printf("%llu, ", X[i]);
   	
   int64_t sum = 0;
   for (i= 0; i < n; i++ ) { 
     sum += X[i];
   }
   *ptr_sum = sum;
-  printf("\nSum = %ld", *ptr_sum);
+  printf("\nSum = %llu", *ptr_sum);
   return status;
 }
 
@@ -131,7 +131,7 @@ int uint32_sum(uint32_t *X, int n, uint64_t *ptr_sum)
     sum += X[i];
   }
   *ptr_sum = sum;
-  printf("\nSum = %lu", *ptr_sum);
+  printf("\nSum = %llu", *ptr_sum);
   return status;
 }
 
@@ -142,7 +142,7 @@ int uint64_sum(uint64_t *X, int n, uint64_t *ptr_sum)
   printf("\nArray is:");
   int i; 
   for (i= 0; i < n; i++)
-  	printf("%lu, ", X[i]);
+  	printf("%llu, ", X[i]);
   	
   uint64_t sum = 0;
 
@@ -150,7 +150,7 @@ int uint64_sum(uint64_t *X, int n, uint64_t *ptr_sum)
     sum += X[i];
   }
   *ptr_sum = sum;
-  printf("\nSum = %lu	", *ptr_sum);
+  printf("\nSum = %llu	", *ptr_sum);
   return status;
 }
 
