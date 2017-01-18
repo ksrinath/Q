@@ -1,9 +1,9 @@
 DC_TOP		= ../../../dyncall
 CC		= gcc
-LUA_INCDIR	= /usr/local/include
-LUA_LIBDIR	= /usr/local/lib
-CFLAGS	= -I$(LUA_INCDIR) -I$(DC_TOP)/include
-LIBS = -L$(LUA_LIBDIR) $(LUA_LIBDIR)/liblua.5.2.4.dylib -L$(DC_TOP)/lib -ldynload_s -ldyncall_s
+LUA_INCDIR	= ../../../lua-5.3.3/src
+LUA_LIBDIR	= ../../../lua-5.3.3/src
+CFLAGS	= -fPIC -I$(LUA_INCDIR) -I$(DC_TOP)/include
+LIBS = -L$(LUA_LIBDIR) $(LUA_LIBDIR)/liblua.a -L$(DC_TOP)/lib -ldynload_s -ldyncall_s
 
 all: luadc.dll
 

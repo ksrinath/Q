@@ -170,8 +170,14 @@ LUA_API int luadc_open (lua_State* L)
 {
   int i = 0, n = sizeof(gModeEnums)/sizeof(ModeEnum);
   g_pCallVM = dcNewCallVM(256); 
-  luaL_register(L, LUA_DCLIBNAME, dclib);
-
+  #if LUA_VERSION_NUM > 501
+	lua_newtable(L);
+	luaL_setfuncs(L, dclib, 0);
+	lua_pushvalue(L,-1);
+	lua_setglobal(L, LUA_DCLIBNAME);
+  #else
+  	luaL_register(L, LUA_DCLIBNAME, dclib);
+  #endif
   for (i = 0; i < n ; ++i )
   {
     lua_pushnumber(L, gModeEnums[i].value);
