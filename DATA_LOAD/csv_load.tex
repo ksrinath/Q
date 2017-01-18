@@ -23,7 +23,7 @@
 \begin{abstract}
 A At a very high level, when we load data from a CSV file, we are
 converting data presented in ascii in row format to a set of files in
-binary format, one for each of the columns in the CSV
+binary format, one for each of the fields in the CSV
 file. Technically, we are creating a table of vectors but we will get
 to that detail later in this document.
 \end{abstract}
@@ -73,7 +73,7 @@ The Q operator that loads a CSV file is as follows
 X = load(data="foo.csv", meta_data = M, has_hdr_line = true)
 \end{verbatim}
 
-where M is a table that has \(N\) values, one for each of the \(N\) columns
+where M is a table that has \(N\) values, one for each of the \(N\) fields
 that we expect to find in foo.csv
 
 What does M look like?
@@ -89,19 +89,19 @@ M = { { name = "", field_type = "" },
     }
 \end{verbatim}
 
-Let's go through these lines one at a time. The table has 6 columns.
+Let's go through these lines one at a time. The table has 6 fields.
 
 \be
 \item 
-The first line says that the first column should be ignored - hence we
+The first line says that the first field should be ignored - hence we
 do not need to provide a name or a field type
 \item 
-Line 2 for field f1 says that we expect all values of the second column to
+Line 2 for field f1 says that we expect all values of the second field to
 be valid values for a variable of type \verb+int32_t+ and that the
 resulting vector is of type \verb+int32_t+
 
 \item 
-Loine 3 for field f2  says that we expect all values of the third column to
+Line 3 for field f2  says that we expect all values of the third field to
 be valid values for a variable of type \verb+int64_t+ and that the
 resulting vector is of type
 \verb+int8_t, int16_t, int32_t, int64_t+. The smallest field that
@@ -109,7 +109,7 @@ can accomodate the values will be used. In other words, if all values are
 between -32768 and +32767, then we will use \verb+int16_t+
 \framebox{Not for version 1. }
 \item 
-Line 4 for field f3 says that we expect all values of the third column to
+Line 4 for field f3 says that we expect all values of the third field to
 be valid values for a variable of type double and that the resulting
 vector is of type
 \verb+int8_t, int16_t, int32_t, int64_t, float, double+. If all values
@@ -119,7 +119,7 @@ used. Else, float will be used if it causes no loss; else, double.
 \item Line 5 for field f4 says that this is a constant length string. The size
   includes the null character used to terminate the string. So, 0123456789ABCDE
   is a valid string for length 16 but 0123456789ABCDEDF is not. If the input
-  value is less than 15 characters, it is padded with null characters so that
+  value is less than 15 characters, it is right-padded with null characters so that
   the total length of the field (as written to the binary file) is 16
   characters. 
 
@@ -132,7 +132,7 @@ a dictionary, Section~\ref{dictionary}
 \label{dictionary}
 
 Q does not (for now) support variable length character strings as a
-data type.  So, when we read a column that contains a character string,
+data type.  So, when we read a field that contains a character string,
 we convert it into an integer. A dictionary is the data structure that allows us
 to deterministically map from strings to integers on the input and vice versa on
 the output.
@@ -140,14 +140,14 @@ the output.
 During loading, there are two main cases to consider
 \be
 \item \verb+is_dict=false+ no dictionary exists for this field and one must be created. If D1 is such
-  a dictionary, then no other column in this load statement can use D1
+  a dictionary, then no other field in this load statement can use D1
 \item \verb+is_dict=true+ a dictionary exists for this field and must be used. In this case, we have
   two sub-cases.  If you come across a string which does not exist in the dictionary, 
   \be
 \item \verb+add=true+ can you add to the dictionary. 
 \item \verb+add=false+ can you {\bf not} add to the dictionary. 
   \ee
-  If D1 is such a dictionary, then it can be used by other columns so long as they use it in a similar manner
+  If D1 is such a dictionary, then it can be used by other field so long as they use it in a similar manner
   \ee
 
 A few important implementation notes:
