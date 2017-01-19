@@ -59,21 +59,68 @@ foo,"",2
   quote
 
 \ee
-At some future point, we might want to make these customizable
+\subsection{CSV Customizations}
+\label{csv_custom}
+At some future point, we might want to make the following customizable
 \be
 \item field separator, currently comma
 \item record delimiter, currently eoln
 \item field opener, currently double-quote
 \item field closer, currently double-quote
-  \ee
+\ee
+
+\subsection{Environment Variables}
+The following environment variables are mandatory
+\be
+\item \verb+Q_DATA_DIR+ This is where binary files corresponding to vectors will
+  be stored. 
+\item \verb+Q_META_DATA_DIR+ This is where meta data needed to restore state
+  will be stored
+\ee
+
+\subsection{Conventions}
+\label{conventions}
+
+All binary files will 
+\be
+\item start with underscore 
+\item be followed by a sequence of alphanumeric characters 
+\item contain exactly 16 characters
+\ee
+
+\subsubsection{Null values}
+\label{null_values}
+Let us say that a vector \(x\) has null values and is stored in file
+\verb+_x+.  Then, we will have a nn file called \verb+_nn_x+ which
+will tell us which values of \(x\) are null and which are not.
+
+What does the nn file look like? Our initial idea was to use an 8-bit
+integer to represent 1 and 0. We then decided to use bits
+instead. However, there is an important subtlety regarding the size of
+the nn file to be aware of.
+
+If we had used a byte to record whether null or not, then if \(x\) had
+1000 values and was of type \verb+int32_t+, then \verb+_x+ would be
+4000 bytes in length and \verb+_nn_x+ would be 1000 bytes in
+length. When the nn is recorded as bits and not bytes, then we need to
+{\bf round up} to the next multiple of 64. Since 1024 is the smallest
+value greater than equal to 1000 which is a multiple of 64, then
+\verb+_nn_x+ would have length 1024 bits = 128 bytes
 
 \section{Q syntax}
 The Q operator that loads a CSV file is as follows
 \begin{verbatim}
-X = load(data="foo.csv", meta_data = M, has_hdr_line = true)
+X = load(data="foo.csv", meta_data = M, global_meta = M2 }
 \end{verbatim}
 
-where M is a table that has \(N\) values, one for each of the \(N\) fields
+We now explain M and M2. M2 has information that is pertinent to the processing
+of the entire file. In addition to the information in Section~\ref{csv_custom},
+it has 
+\be
+\item is\_hdr = true or false
+\ee
+
+M is a table that has \(N\) values, one for each of the \(N\) fields
 that we expect to find in foo.csv
 
 What does M look like?
