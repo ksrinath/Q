@@ -42,9 +42,9 @@ Generator.__index = Generator
  end
 
  function Generator:get_next_chunk()
-    local status, buffer --TODO add size to vector's chunk method
-    status, buffer = coroutine.resume(self.gen)
-    return status, buffer
+    local status, buffer, size
+    status, buffer, size = coroutine.resume(self.gen)
+    return status, buffer, size
 end
 
 return Generator
