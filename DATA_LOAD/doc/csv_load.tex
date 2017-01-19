@@ -1,5 +1,5 @@
 \documentclass[letterpaper]{article}
-\input{../latex/styles/ramesh_abbreviations}
+\input{../../latex/styles/ramesh_abbreviations}
 \usepackage{times}
 \usepackage{helvet}
 \usepackage{courier}
@@ -88,25 +88,6 @@ All binary files will
 \item contain exactly 16 characters
 \ee
 
-\subsubsection{Null values}
-\label{null_values}
-Let us say that a vector \(x\) has null values and is stored in file
-\verb+_x+.  Then, we will have a nn file called \verb+_nn_x+ which
-will tell us which values of \(x\) are null and which are not.
-
-What does the nn file look like? Our initial idea was to use an 8-bit
-integer to represent 1 and 0. We then decided to use bits
-instead. However, there is an important subtlety regarding the size of
-the nn file to be aware of.
-
-If we had used a byte to record whether null or not, then if \(x\) had
-1000 values and was of type \verb+int32_t+, then \verb+_x+ would be
-4000 bytes in length and \verb+_nn_x+ would be 1000 bytes in
-length. When the nn is recorded as bits and not bytes, then we need to
-{\bf round up} to the next multiple of 64. Since 1024 is the smallest
-value greater than equal to 1000 which is a multiple of 64, then
-\verb+_nn_x+ would have length 1024 bits = 128 bytes
-
 \section{Q syntax}
 The Q operator that loads a CSV file is as follows
 \begin{verbatim}
@@ -117,7 +98,8 @@ We now explain M and M2. M2 has information that is pertinent to the processing
 of the entire file. In addition to the information in Section~\ref{csv_custom},
 it has 
 \be
-\item is\_hdr = true or false
+\item is\_hdr = true or false, which tells us whether to ignore the first line
+  or not
 \ee
 
 M is a table that has \(N\) values, one for each of the \(N\) fields
@@ -126,8 +108,8 @@ that we expect to find in foo.csv
 What does M look like?
 \begin{verbatim}
 M = { { name = "", field_type = "" },
-{ name = "f1", type = "int32_t" },
-{ name = "f2", type = "integer" },
+{ name = "f1", null = "true", type = "int32_t" },
+{ name = "f2", null = "false", type = "integer" },
 { name = "f3", type = "number" },
 { name = "f4", size = 16 },
 { name = "f5", type = "varchar", dict = "D1", is_dict = false }, 
@@ -175,6 +157,49 @@ In order to explain lines with ``dict'', we need to introduce the concept of
 a dictionary, Section~\ref{dictionary}
 \ee
 
+\section{Null values}
+\label{null_values}
+
+We now explain the {\bf null} in the meta data of the previous example. 
+
+Let us say that a vector \(x\) has null values and is stored in file
+\verb+_x+.  Then, we will have a nn file called \verb+_nn_x+ which
+will tell us which values of \(x\) are null and which are not.
+
+What does the nn file look like? Our initial idea was to use an 8-bit
+integer to represent 1 and 0. We then decided to use bits
+instead. However, there is an important subtlety regarding the size of
+the nn file to be aware of.
+
+If we had used a byte to record whether null or not, then if \(x\) had
+1000 values and was of type \verb+int32_t+, then \verb+_x+ would be
+4000 bytes in length and \verb+_nn_x+ would be 1000 bytes in
+length. When the nn file is recorded as bits and not bytes, then we need to
+{\bf round up} to the next multiple of 64. Since 1024 is the smallest
+value greater than equal to 1000 which is a multiple of 64, then
+\verb+_nn_x+ would have length 1024 bits = 128 bytes
+
+What happens when the user specifies that a vector 
+has no null values but we encounter a null value while reading the data
+file? Abort the entire operation.
+
+What happens when the user specifies that a vector 
+has null values but we do {\bf not} encounter a null value while reading the
+data? This is legitimate. However, we delete the nn file created before creating
+the vector.
+
+What happens if the user does not specify whether a vector has null values? In
+this case, we assume that \verb+null = "true"+
+
+For later: we will need these macros
+\be 
+\item \verb+set_bit(N, i, 1)+
+\item \verb+set_bit(N, i, 0)+
+\item \verb+get_bit(N, i)+
+\ee
+
+%-----------------------------------------------
+
 \section{Dictionaries}
 \label{dictionary}
 
@@ -187,18 +212,36 @@ the output.
 During loading, there are two main cases to consider
 \be
 \item \verb+is_dict=false+ no dictionary exists for this field and one must be created. If D1 is such
-  a dictionary, then no other field in this load statement can use D1
+  a dictionary, then no other field in this load statement can use D1. If a
+  dictionary called D1 exists, then this operation aborts.
 \item \verb+is_dict=true+ a dictionary exists for this field and must be used. In this case, we have
   two sub-cases.  If you come across a string which does not exist in the dictionary, 
   \be
 \item \verb+add=true+ can you add to the dictionary. 
 \item \verb+add=false+ can you {\bf not} add to the dictionary. 
   \ee
-  If D1 is such a dictionary, then it can be used by other field so long as they use it in a similar manner
+  If D2 is such a dictionary, then it can be used by other field so long as they
+  use it in a similar manner. If a dictonary D2 does not exist, the operation
+  aborts. If \verb+add=false+ and you come across a string that is not in D2,
+  the operation aborts.
   \ee
 
 A few important implementation notes:
 \be
+\item Use Lua to parse the file up to the point where you have identified the
+  string that corresponds to a particular cell in the table represented by the
+  CSV file. At that time, hand off to C to convert this into a valid C type, as
+  in Section~\ref{tbl_default_types}. As an example, the C function takes the
+  string 
+  \be
+\item \verb+123456+ and creates the 4 bytes corresponding to an
+  \verb+int32_t+ representation of 123456.
+\item \verb+abc+ and creates the 8 bytes \verb+abc00000+ where 0 represents the
+  null character and we assume that the user wanted a constant length string
+  field of length 8.
+  \ee
+
+
 \item 
 When the system shuts down, it is important that the dictionaries are persisted
 to disk because they will need to be restored when the 
