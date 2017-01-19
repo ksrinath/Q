@@ -1,4 +1,4 @@
-#!?bin/bash
+#!/bin/bash
 bash cleanup.sh
 bash generate_static_checker.sh
 bash generate_white_list.sh
