@@ -1,9 +1,9 @@
 require "package"
-local f, e = package.loadlib("/home/i/bindings/lua/luadc/luadc.dll", "luadc_open")
+local f, e = package.loadlib("../luadc.dll", "luadc_open")
 print (e)
 print(type(f))
 f()
-local libhandle = dc.load("/home/i/bindings/lua/luadc/libtest.so")
+local libhandle = dc.load("./libtest.so")
 local f = dc.find(libhandle, "add")
 dc.mode(dc.C_DEFAULT)
 --local t = dc.call(f, "if)d", 1, 1)
