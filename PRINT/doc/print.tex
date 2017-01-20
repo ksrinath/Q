@@ -1,0 +1,78 @@
+\documentclass[letterpaper]{article}
+\input{../../latex/styles/ramesh_abbreviations}
+\usepackage{times}
+\usepackage{helvet}
+\usepackage{courier}
+\usepackage{hyperref}
+\usepackage{fancyheadings}
+\pagestyle{fancy}
+\usepackage{pmc}
+\usepackage{graphicx}
+\setlength\textwidth{6.5in}
+\setlength\textheight{8.5in}
+\begin{document}
+\title{Print to CSV}
+\author{ Ramesh Subramonian }
+\maketitle
+\thispagestyle{fancy}
+\lfoot{{\small Data Analytics Team}}
+\cfoot{}
+\rfoot{{\small \thepage}}
+
+\section{Introduction}
+
+This document describes how we print data in one or more vectors into a CSV
+file. 
+
+\subsection{Invocation}
+
+\begin{verbatim}
+print(<table of vectors|vector>, [filter], [destination])
+\end{verbatim}
+So, the first argument to print could be just \(x\) or 
+it could be \({x, y}\)}.
+
+\subsection{Print Filters}
+
+There are a few ways in which we can instruct the print to {\bf not}
+print all the elements of the vector.
+
+\subsubsection{Range}
+
+Try and support Python's range specification style. Else, support
+\verb+lb:ub+ where {\tt lb} is the lower bound (inclusive) and {\tt
+  ub} is the upper bound (exclusive)
+
+\subsubsection{Bit Vector}
+Prints only those rows where the corresponding bit is set.
+
+\subsection{Print Destination}
+
+The destination of a print can be either 
+\be
+\item stdout (user does not specify a file name)
+\item a text file 
+\ee
+
+\section{Printing a single vector}
+\label{Single_Vector}
+
+Let's start with describing how a single vector should be printed. As
+described in the data loading specification, every type that is
+registered with Q should have a C function that converts an ascii
+string into the C type and vice versa.
+
+\section{Printing multiple vectors}
+\label{Single_Vector}
+
+We require that 
+\be
+\item 
+the first argument is a Lua table where each element is a single vector. 
+\item 
+
+\subsection{Extensions}
+In this section, we describe what happens when the constraints imposed above are
+selectively relaxed.
+\subsubsection
+
