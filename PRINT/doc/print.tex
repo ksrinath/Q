@@ -30,20 +30,27 @@ file.
 print(<table of vectors|vector>, [filter], [destination])
 \end{verbatim}
 So, the first argument to print could be just \(x\) or 
-it could be \({x, y}\)}.
+it could be \(\{x, y\}\)
 
 \subsection{Print Filters}
 
 There are a few ways in which we can instruct the print to {\bf not}
-print all the elements of the vector.
+print all the elements of the vector. We can use a range (Section~\ref{range})
+or a ``where clause'' represented as a bit vector, Section~\ref{bit_vector}.
 
 \subsubsection{Range}
+\label{range}
 
-Try and support Python's range specification style. Else, support
+Support
 \verb+lb:ub+ where {\tt lb} is the lower bound (inclusive) and {\tt
-  ub} is the upper bound (exclusive)
+ub} is the upper bound (exclusive). So a range of \(2:4\) would mean printing
+out the \(2^{th}\) element and the \(3^{th}\) element. 
+Recall that we do C style indexing, so the first element is the \(0^{th}\)
+element. 
+Some time in the future --- support Python's range specification style. 
 
 \subsubsection{Bit Vector}
+\label{bit_vector}
 Prints only those rows where the corresponding bit is set.
 
 \subsection{Print Destination}
@@ -54,25 +61,52 @@ The destination of a print can be either
 \item a text file 
 \ee
 
+It is important to note that the output of print should be consumable by the
+load csv function. For example, if the value to be printed contains a special
+character --- comma, double quote, eoln or backslash --- then it must be
+suitable escaped and possibly quoted as well. A null value will be printed out
+as two consescutive dquote characters.
+
 \section{Printing a single vector}
-\label{Single_Vector}
+\label{single_vector}
 
 Let's start with describing how a single vector should be printed. As
 described in the data loading specification, every type that is
-registered with Q should have a C function that converts an ascii
-string into the C type and vice versa.
+registered with Q should have a C function that (i) converts an ascii
+string into the C type and (ii) converts a fixed set of bytes into an ascii
+string. 
 
 \section{Printing multiple vectors}
-\label{Single_Vector}
+\label{multiple_vectors}
 
 We require that 
 \be
 \item 
 the first argument is a Lua table where each element is a single vector. 
-\item 
+\item all vectors have the same length
+\ee
 
 \subsection{Extensions}
 In this section, we describe what happens when the constraints imposed above are
 selectively relaxed.
-\subsubsection
+\subsubsection{Mismatched number of elements}
+In this case, the vector with insufficient elements starts printing out null
+values once it has exhausted all its values. So, if \(x = \{1, 2,3\}\) and \(y
+= \{4, 5, 6, 7\}\), then we would get
+\begin{verbatim}
+1,4
+2,5
+3,6
+"",7
+\end{verbatim}
 
+\subsubsection{Scalar not vector}
+If the table looked like \(\{1, x\}\) where \(x = \{2, 3, 4 \}\), then we would
+get
+\begin{verbatim}
+1,2
+1,3
+1,4
+\end{verbatim}
+
+\end{document}
