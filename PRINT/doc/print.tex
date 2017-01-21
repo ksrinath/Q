@@ -74,7 +74,10 @@ Let's start with describing how a single vector should be printed. As
 described in the data loading specification, every type that is
 registered with Q should have a C function that (i) converts an ascii
 string into the C type and (ii) converts a fixed set of bytes into an ascii
-string. 
+string. We simply iterate through the elements and apply the text converter to
+each consecutive block. For example, we would apply {\t fprintf} with the
+\verb+%lf+ format on every successive 8 bytes if the field type were
+{\tt double}
 
 \section{Printing multiple vectors}
 \label{multiple_vectors}
