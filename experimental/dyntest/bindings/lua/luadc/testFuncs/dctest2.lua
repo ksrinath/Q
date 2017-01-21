@@ -1,5 +1,5 @@
 require "package"
-local f = package.loadlib("/home/i/bindings/lua/luadc/luadc.dll", "luadc_open")
+local f = package.loadlib("../luadc.dll", "luadc_open")
 f()
 --local t = dc.call(f, "if)d", 1, 1)
 print (type(t))
@@ -15,7 +15,7 @@ local bench = function(name, func, loops)
    print (name .. " took " .. time/loops)
 end
 local ffiFunction = function()
- local libhandle = dc.load("/home/i/bindings/lua/luadc/libtest.so")
+ local libhandle = dc.load("./libtest.so")
 local f = dc.find(libhandle, "add")
 dc.mode(dc.C_DEFAULT)
   local t = dc.call(f, "if)d", 1, 1)
