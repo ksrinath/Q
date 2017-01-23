@@ -162,7 +162,6 @@ ModeEnum gModeEnums[] =
   "C_X86_WIN32_FAST_GNU", DC_CALL_C_X86_WIN32_FAST_GNU,
   "C_X64_WIN64", DC_CALL_C_X64_WIN64,
   "C_PPC32_DARWIN", DC_CALL_C_PPC32_DARWIN,
-  "C_ARM", DC_CALL_C_ARM,
   "C_MIPS_EABI", DC_CALL_C_MIPS32_EABI,
   "C_MIPS_PSPSDK", DC_CALL_C_MIPS32_PSPSDK
 };
@@ -171,8 +170,14 @@ LUA_API int luadc_open (lua_State* L)
 {
   int i = 0, n = sizeof(gModeEnums)/sizeof(ModeEnum);
   g_pCallVM = dcNewCallVM(256); 
-  luaL_register(L, LUA_DCLIBNAME, dclib);
-
+  #if LUA_VERSION_NUM > 501
+	lua_newtable(L);
+	luaL_setfuncs(L, dclib, 0);
+	lua_pushvalue(L,-1);
+	lua_setglobal(L, LUA_DCLIBNAME);
+  #else
+  	luaL_register(L, LUA_DCLIBNAME, dclib);
+  #endif
   for (i = 0; i < n ; ++i )
   {
     lua_pushnumber(L, gModeEnums[i].value);
