@@ -5,6 +5,8 @@ local mylib = ffi.load("./adder.so") --set the path of your adder.so file here i
 require 'q_vagg'
 local sum
 
+print("Program Started")
+
 local mysum, status = vagg(mylib, {-127,100,5,-1}, "int8_t", "int16_t", "int8_sum") -- call to function in q_vagg.lua file 
 --print("\nTotal is " .. mysum);
 sum=-127+100+5-1
@@ -66,6 +68,26 @@ if mysum~=sum  then
 	print("FAILURE") 
 end
 
+
+local mysum, status = vagg(mylib, {1099511627776,1099511627776}, "uint64_t", "uint64_t", "uint64_sum")
+print("\nTotal is " .. mysum);
+sum=1099511627776+1099511627776
+print("Sum is " .. sum)
+if mysum~=sum  then
+        print("FAILURE")
+end
+
+
+local mysum, status = vagg(mylib, {18446744073709551616,1}, "uint64_t", "uint64_t", "uint64_sum")
+print("\nTotal is " .. mysum);
+sum=18446744073709551616+1
+print("Sum is " .. sum)
+if mysum~=sum  then
+        print("FAILURE")
+end
+
+
+
 local mysum, status = vagg(mylib, {3.275412,2.275421,3.275412}, "float", "float", "float_sum")
 --print("\nTotal is " .. mysum);
 sum=3.275412+2.275421+3.275412
@@ -97,3 +119,4 @@ if mysum~=sum  then
 	print("FAILURE see",sum) 
 end
 
+print("Bye!")
