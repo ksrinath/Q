@@ -51,6 +51,7 @@ qcbnd.cdecl = function(fname, rtyp, ...) -- TODO memoize
       local pi = (select(i, ...))
       if (type (pi) == "table") then
         p[i] = ffi.new (ptact[i] .. "[" .. table.getn(pi) .. "]", pi)
+	print(p[i])
       elseif (pi == "out") then
         p[i] = ffi.new(ptact[i] .. "[1]");	 
         outs[table.getn(outs) + 1] = i

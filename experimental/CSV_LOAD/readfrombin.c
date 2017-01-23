@@ -16,10 +16,43 @@ int main(int argc, char *argv[]){
     int32_t num=0;
     
     fread(&num, sizeof(int32_t), 1, inp);
-
     printf("The integer is %d\n",num);   
     
     fread(&num, sizeof(int32_t), 1, inp);
     printf("The integer is %d\n",num);   
+    
+    fread(&num, sizeof(int32_t), 1, inp);
+    printf("The integer is %d\n",num);   
+  
+    fread(&num, sizeof(int32_t), 1, inp);
+    printf("The integer is %d\n",num);   
+        
+    fread(&num, sizeof(int32_t), 1, inp);
+    printf("The integer is %d\n",num); 
+
+if ((inp = fopen("yoj.bin","r")) == NULL){
+    printf("could not open file for reading\n");
+    exit(1);}
+
+   
+    int16_t num1=0;
+    
+    fread(&num1, sizeof(int16_t), 1, inp);
+    printf("The integer is %d\n",num1);   
+    
+    fread(&num1, sizeof(int16_t), 1, inp);
+    printf("The integer is %d\n",num1);   
+    
+    fread(&num1, sizeof(int16_t), 1, inp);
+    printf("The integer is %d\n",num1);   
+  
+    fread(&num1, sizeof(int16_t), 1, inp);
+    printf("The integer is %d\n",num1);   
+        
+    fread(&num1, sizeof(int16_t), 1, inp);
+    printf("The integer is %d\n",num1); 
+
+   
+    
     
 }

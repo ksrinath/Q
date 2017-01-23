@@ -1,61 +1,49 @@
-create = function (f, colname) 
+local ffi = require("ffi")
+local binfilepath = "/home/pragati/Desktop/CSV_LOAD/"
 
-  local ffi = require("ffi")
-  local decl = "typedef struct FILE FILE;  FILE* createFile(char *fname);"
-  print("\nCalling "..decl) 
-  ffi.cdef(decl)	 
-  --print(empid)
+
+ffi.cdef[[
+  typedef struct FILE FILE;  FILE* createFile(char *fname);
+  typedef struct FILE FILE;  FILE * convertAndWriteInteger(const char **arr, char *type,int n, FILE *fname);
+  typedef struct FILE FILE;  FILE * convertAndWriteString(int32_t *arr, char *type,int n, FILE *fname);
+  void close(FILE *fname);
+  ]]
   
-  local fn = ffi.new("char [?]", #colname)
-  ffi.copy(fn, colname)
-
+create = function (f, colname) 
+  
+  filepath = binfilepath..colname
+  
+  local fn = ffi.new("char [?]", #filepath, filepath)
+  --print(filepath)
+  
   local fp = f["createFile"](fn)
   return fp;
 end
 
-writenumdata = function (f, RECORD, typ, fp) 
-
-  local ffi = require("ffi")
-  local decl = "typedef struct FILE FILE;  FILE * convertAndWrite(const char **arr, char *type,int n, FILE *fname);"
-  print("\nCalling "..decl) 
-  ffi.cdef(decl)	 
-  --print(empid)
-  local ty = ffi.new("char [?]", #typ)
-  ffi.copy(ty, typ)
+writenumdata = function (f, COLUMN, typ, fp) 
+ 
+  local ty = ffi.new("char [?]", #typ, typ)
   
-  n = table.getn(RECORD)
-  local c_table = ffi.new("const char *[".. n .. "]",RECORD);
+  n = table.getn(COLUMN)
+  local c_table = ffi.new("const char *[".. n .. "]",COLUMN);
 
-  local fp = f["convertAndWrite"](c_table , ty, #RECORD, fp)
+  local fp = f["convertAndWriteInteger"](c_table , ty, #COLUMN, fp)
   return fp
 end
 
 
-writestringdata = function (f, RECORD, typ, fp) 
+writestringdata = function (f, COLUMN, typ, fp) 
 
-  local ffi = require("ffi")
-  local decl = "typedef struct FILE FILE;  FILE * convertAndWriteString(int32_t *arr, char *type,int n, FILE *fname);"
-  print("\nCalling "..decl) 
-  ffi.cdef(decl)	 
-  --print(empid)
-  local ty = ffi.new("char [?]", #typ)
-  ffi.copy(ty, typ)
+  local ty = ffi.new("char [?]", #typ, typ)
   
-  n = table.getn(RECORD)
-  RECORD = ffi.new("int32_t [".. n .. "]", RECORD)
+  n = table.getn(COLUMN)
+  COLUMN = ffi.new("int32_t [".. n .. "]", COLUMN)
 
-  local fp = f["convertAndWriteString"](RECORD , ty, n, fp)
+  local fp = f["convertAndWriteString"](COLUMN , ty, n, fp)
   return fp
 end
 
 
 close = function (f, fp) 
-
-  local ffi = require("ffi")
-  local decl = "void close(FILE *fname);"
-  print("\nCalling "..decl) 
-  ffi.cdef(decl)	 
- 
-  f["close"](fp)
- 
+    f["close"](fp)
 end

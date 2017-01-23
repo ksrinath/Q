@@ -5,19 +5,17 @@
 
 FILE * createFile(char *fname)
 {
-	char filepath[50] = "/home/pragati/Desktop/CSV_LOAD/";
 	
-	strcat(filepath,fname);
-	strcat(filepath,".bin");
+	strcat(fname,".bin");
 	//printf("%s",filepath);
 	
-	FILE *file = fopen(filepath, "wb");
+	FILE *file = fopen(fname, "wb");
 	return file;
 	
 }
 
 
-FILE * convertAndWrite(const char **arr, char *type,int n, FILE *fname)
+FILE * convertAndWriteInteger(const char **arr, char *type,int n, FILE *fname)
 {
   if (strcmp(type,"int32_t") == 0)
 	{
@@ -115,8 +113,6 @@ FILE * convertAndWriteString(int32_t *arr, char *type,int n, FILE *fname)
     }
     
 }
-
-
 
 void close(FILE *fname)
 {
